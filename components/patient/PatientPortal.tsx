@@ -196,9 +196,16 @@ export function PatientPortal({ patientId }: { patientId: string }) {
   const money = (n: number) =>
     new Intl.NumberFormat(lang === "es" ? "es-US" : "en-US", { style: "currency", currency: "USD" }).format(n);
 
-  const feed = data.messages.filter((m) =>
-    viewer === "member" ? m.recipient_member_id === member?.id : m.recipient_member_id === null
-  );
+  // Current prescription only. messages has no prescription_id, so scope by
+  // time: updates sent since the latest Rx was created. No Rx, no updates.
+  const rxStart = rx ? Date.parse(rx.created_at) : null;
+  const feed = rxStart !== null
+    ? data.messages.filter(
+        (m) =>
+          Date.parse(m.created_at) >= rxStart &&
+          (viewer === "member" ? m.recipient_member_id === member?.id : m.recipient_member_id === null)
+      )
+    : [];
 
   return (
     <div className="min-h-full flex-1 bg-background text-lg">
