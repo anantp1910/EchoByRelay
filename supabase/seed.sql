@@ -15,7 +15,7 @@
 -- Her new plan requires prior authorization, so this is a "continue therapy" case
 -- -> the router will send her to the Medvantx Bridge program. That is our demo choice.
 
-insert into patients (id, name, language, zip, rural, insured, plan_id, income_band, on_drug_before, is_seed)
+insert into patients (id, name, language, zip, rural, insured, plan_id, income_band, on_drug_before, conditions, is_seed)
 values (
   '11111111-1111-1111-1111-111111111111',
   'Maria González',
@@ -26,6 +26,7 @@ values (
   '33333333-3333-3333-3333-333333333333',
   'above_pap',
   true,
+  '{"type 2 diabetes mellitus","heart failure with reduced ejection fraction"}',
   true
 )
 on conflict (id) do update set
@@ -37,6 +38,7 @@ on conflict (id) do update set
   plan_id        = excluded.plan_id,
   income_band    = excluded.income_band,
   on_drug_before = excluded.on_drug_before,
+  conditions     = excluded.conditions,
   is_seed        = excluded.is_seed;
 
 -- Ana: Maria's daughter, in the care circle, able to pay (Visa checkout later).
