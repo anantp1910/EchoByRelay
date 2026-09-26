@@ -4,6 +4,8 @@ Relay is a voice-first access router that carries a prescription from the doctor
 
 Read `BUILD_PLAN.md` for the full plan. This file is the rulebook.
 
+Also read @AGENTS.md for Next.js 16 guidance from the scaffold.
+
 ## The one demo that must work
 
 Maria (Spanish-speaking, rural South Georgia, diabetes + heart failure) → doctor speaks one sentence → coverage check (PA required, $480 copay) → router sends her to a free Medvantx Bridge + PA drafted with FDA label citations → patient portal explains in Spanish, daughter Ana joins care circle → demo clock jumps to day 24: PA denied, bridge ends in 6 days → watchdog alerts doctor → router moves Maria to Medvantx Cash Pay → Ana pays via Visa agent with passkey + spending cap → refill mandate → pharma dashboard shows "script rescued".
@@ -12,7 +14,7 @@ Every feature decision is judged against: does it make this demo better? If not,
 
 ## Stack
 
-- Next.js 15 (App Router) + TypeScript (strict) + Tailwind + shadcn/ui + Framer Motion + lucide-react
+- Next.js 16 (App Router) + TypeScript (strict) + Tailwind + shadcn/ui + Framer Motion + lucide-react
 - Supabase (Postgres + Realtime) so all three portals update live
 - Grok via xAI's OpenAI-compatible API (`openai` npm SDK with `baseURL` from env). Model names come from env vars, never hardcoded.
 - Recharts for dashboard charts
