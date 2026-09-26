@@ -220,7 +220,8 @@ declare
 begin
   foreach t in array array[
     'agent_events', 'prescriptions', 'alerts', 'messages',
-    'orders', 'enrollments', 'pa_requests', 'payments', 'demo_state'
+    'orders', 'enrollments', 'pa_requests', 'payments', 'demo_state',
+    'care_circle', 'payment_mandates', 'audit_log'
   ]
   loop
     execute format('alter table public.%I replica identity full', t);
@@ -279,6 +280,9 @@ end $$;
 
 -- ============================================================================
 -- Realtime publication (guarded so re-running does not error)
+--   care_circle (Ana joins), payment_mandates (spending cap / passkey) and
+--   audit_log (pharma audit table) were added after A6. Existing databases pick
+--   them up when this file is re-run; nothing streams until it is applied.
 -- ============================================================================
 
 do $$
@@ -294,7 +298,8 @@ declare
 begin
   foreach t in array array[
     'agent_events', 'prescriptions', 'alerts', 'messages',
-    'orders', 'enrollments', 'pa_requests', 'payments', 'demo_state'
+    'orders', 'enrollments', 'pa_requests', 'payments', 'demo_state',
+    'care_circle', 'payment_mandates', 'audit_log'
   ]
   loop
     if not exists (

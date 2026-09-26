@@ -1,11 +1,33 @@
 import type { PharmaMetricsRes } from "@/lib/api/contracts";
 
+/**
+ * Agreed estimate of staff time per manual prior authorization, derived from the
+ * AMA prior-authorization physician survey average. Not a measured saving.
+ */
+export const PA_MINUTES_SAVED_ESTIMATE = 20;
+
 export interface MetricsRows {
   prescriptions: { id: string; status: string; created_at: string; is_seed: boolean }[];
   patients: { rural: boolean }[];
   alerts: { rx_id: string | null; kind: string; created_at: string }[];
   enrollments: { program: string; rx_id: string; start_day: number | null }[];
-  events: { rx_id: string | null; created_at: string; data: Record<string, unknown> }[];
+  events: { rx_id: string | null; agent: string; status: string; created_at: string; data: Record<string, unknown> }[];
+}
+
+/**
+ * Initial PA drafts Relay actually completed: a paDrafter step that reached the
+ * approval card (or a later decision) with a saved pa_request. Appeals are not
+ * new PAs, and each prescription counts once even if it was re-drafted. Seed
+ * stub letters have no drafter event, so they are never counted.
+ */
+export function countInitialPaDrafts(events: MetricsRows["events"]): number {
+  const rxIds = new Set<string>();
+  for (const e of events) {
+    if (e.agent !== "paDrafter" || !["needs_approval", "approved", "rejected"].includes(e.status)) continue;
+    if (e.data?.appeal === true || typeof e.data?.paRequestId !== "string" || !e.rx_id) continue;
+    rxIds.add(e.rx_id);
+  }
+  return rxIds.size;
 }
 
 /** Live results use explicit simulated days, never wall-clock test duration. */
@@ -43,5 +65,7 @@ export function calculateMetrics(rows: MetricsRows): PharmaMetricsRes {
     pctUnderserved: rows.patients.length ? Math.round(1000 * rows.patients.filter((p) => p.rural).length / rows.patients.length) / 10 : 0,
     rescuedSeries: [...counts].sort(([a], [b]) => a - b).map(([day, count]) => ({ day, count: cumulative += count })),
     programMix: [...mix].sort(([a], [b]) => a.localeCompare(b)).map(([program, count]) => ({ program, count })),
+    sample: false,
+    paHoursSaved: Math.round((countInitialPaDrafts(rows.events) * PA_MINUTES_SAVED_ESTIMATE) / 60 * 10) / 10,
   };
 }

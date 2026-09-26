@@ -84,6 +84,14 @@ async function main() {
   assert.equal(rx().status, "on_therapy");
   assert.ok(memory.tables.alerts.every((a) => a.resolved));
   assert.equal(memory.tables.agent_events.filter((e) => (e.data as Row)?.onTherapy).length, 1);
+  const { calculateMetrics } = await import("../lib/pharma/metrics");
+  const metrics = calculateMetrics({
+    prescriptions: memory.tables.prescriptions, patients: memory.tables.patients, alerts: memory.tables.alerts,
+    enrollments: memory.tables.enrollments, events: memory.tables.agent_events,
+  } as unknown as Parameters<typeof calculateMetrics>[0]);
+  assert.equal(metrics.scriptsRescued, 1);
+  assert.equal(metrics.sample, false);
+  assert.equal(metrics.paHoursSaved, 0.3, "one initial PA x 20 min; the appeal is not a new PA");
   const messageCount = memory.tables.messages.length;
   await runWatchdog(26);
   assert.equal(memory.tables.messages.length, messageCount);

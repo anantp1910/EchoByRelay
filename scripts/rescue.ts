@@ -119,6 +119,9 @@ async function main() {
   await http("/api/demo", { action: "jump", day: 26 });
   const metrics = PharmaMetricsResSchema.parse(await http("/api/pharma/metrics", undefined, "GET"));
   assert.equal(metrics.scriptsRescued, baseline.scriptsRescued + 1);
+  assert.equal(metrics.sample, false);
+  // Maria's initial PA adds one 20-minute estimate; her appeal must not add another.
+  assert.ok(Math.abs(metrics.paHoursSaved - baseline.paHoursSaved - 20 / 60) <= 0.1, "paHoursSaved counts one initial PA, not the appeal");
   console.log("FINAL METRICS", JSON.stringify(metrics, null, 2));
   const { data: events, error } = await db.from("agent_events").select("title,status,data").eq("rx_id", rxId).order("created_at");
   if (error) throw new Error(error.message);

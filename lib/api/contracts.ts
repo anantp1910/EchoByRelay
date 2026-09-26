@@ -219,5 +219,13 @@ export const PharmaMetricsResSchema = z.object({
   pctUnderserved: z.number(),
   rescuedSeries: z.array(z.object({ day: z.number().int(), count: z.number().int() })),
   programMix: z.array(z.object({ program: z.string(), count: z.number().int() })),
+  // Live route computes from DB rows; never a stub. Replaces B's page constant.
+  sample: z.literal(false),
+  // ESTIMATE, not measured: unique initial PA drafts (appeals excluded) x 20 min,
+  // the AMA prior-authorization survey average, converted to hours.
+  paHoursSaved: z
+    .number()
+    .nonnegative()
+    .describe("Estimate: unique initial PA drafts x 20 min (AMA survey average), in hours"),
 });
 export type PharmaMetricsRes = z.infer<typeof PharmaMetricsResSchema>;
