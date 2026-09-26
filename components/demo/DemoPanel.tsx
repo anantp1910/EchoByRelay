@@ -22,11 +22,7 @@ import { supabase } from "@/lib/db/client";
 import { MARIA_ID } from "@/lib/demo/constants";
 import { cn } from "@/lib/utils";
 
-// Actions the demo API really implements today. deny_pa / approve_pa /
-// no_pickup are stubs until A6 — add them here once they do real work.
-const READY = new Set<DemoAction>(["reset", "advance", "jump"]);
-
-const ACTIONS: {
+type PanelAction = {
   action: DemoAction;
   testId: string;
   label: string;
@@ -34,21 +30,44 @@ const ACTIONS: {
   icon: LucideIcon;
   day?: number;
   tone?: "danger";
-}[] = [
-  // Until A6, reset only moves the clock; npm run demo:reset clears the data.
+};
+
+const ACTIONS: PanelAction[] = [
+  // reset calls reset_demo(): clears all non-seed demo data and sets day 0.
   {
     action: "reset",
     testId: "demo-reset",
-    label: "Reset clock",
-    hint: "Clock to day 0 only. Run npm run demo:reset to clear data.",
+    label: "Reset demo",
+    hint: "Clears demo data and sets the clock to day 0.",
     icon: RotateCcw,
   },
   { action: "advance", testId: "demo-advance", label: "Day +1", hint: "Advance the demo clock", icon: FastForward, day: 1 },
   { action: "jump", testId: "demo-jump-24", label: "Jump to day 24", hint: "Bridge ends in 6 days", icon: CalendarClock, day: 24 },
+];
+
+const INSURER_ACTIONS: PanelAction[] = [
   { action: "deny_pa", testId: "demo-deny-pa", label: "Deny PA", hint: "Payer denies Maria's PA", icon: CircleX, tone: "danger" },
   { action: "approve_pa", testId: "demo-approve-pa", label: "Approve PA", hint: "Payer approves the PA", icon: CircleCheck },
   { action: "no_pickup", testId: "demo-no-pickup", label: "Simulate no pickup", hint: "Order not delivered on time", icon: PackageX },
 ];
+
+// The stage run, in order. Scene 4 needs the day-24 state (bridge cliff) first.
+const SCENES: { n: number; mark: string; action: DemoAction; day?: number; label: string; hint: string; minDay?: number }[] = [
+  { n: 1, mark: "①", action: "reset", label: "Reset", hint: "Clear demo data, day 0" },
+  { n: 2, mark: "②", action: "jump", day: 2, label: "Bridge delivered", hint: "Day 2: free supply arrives" },
+  { n: 3, mark: "③", action: "jump", day: 24, label: "Day 24", hint: "Bridge ends in 6 days" },
+  { n: 4, mark: "④", action: "deny_pa", label: "Insurer denies", hint: "PA denied, Cash Pay offered", minDay: 24 },
+  { n: 5, mark: "⑤", action: "jump", day: 26, label: "Delivered", hint: "Day 26: Cash Pay arrives" },
+];
+
+/** Next scene to play, from the live day and whether Maria's PA is denied. */
+function nextScene(day: number | null, denied: boolean): number | null {
+  if (day === null) return null;
+  if (day >= 26) return 1; // story finished; reset for the next run
+  if (day >= 24) return denied ? 5 : 4;
+  if (day >= 2) return 3;
+  return 2;
+}
 
 /** Live demo_state.day via Realtime (null until loaded). */
 function useDemoDay() {
@@ -84,22 +103,96 @@ function useDemoDay() {
   return { day, setDay, error };
 }
 
+/** Whether Maria's newest demo prescription has a denied PA (live via Realtime). */
+function usePaDenied(): boolean {
+  const [denied, setDenied] = useState(false);
+
+  useEffect(() => {
+    if (!supabase) return;
+    const client = supabase;
+    let cancelled = false;
+    async function load() {
+      const { data: rx } = await client
+        .from("prescriptions")
+        .select("id")
+        .eq("patient_id", MARIA_ID)
+        .eq("is_seed", false)
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      const rxId = (rx as { id: string } | null)?.id;
+      if (!rxId) {
+        if (!cancelled) setDenied(false);
+        return;
+      }
+      const { count } = await client
+        .from("pa_requests")
+        .select("id", { count: "exact", head: true })
+        .eq("rx_id", rxId)
+        .eq("status", "denied");
+      if (!cancelled) setDenied((count ?? 0) > 0);
+    }
+    const channel = client
+      .channel("demo_state:panel-pa")
+      .on("postgres_changes", { event: "*", schema: "public", table: "pa_requests" }, () => void load())
+      .on("postgres_changes", { event: "*", schema: "public", table: "prescriptions" }, () => void load())
+      .subscribe();
+    void load();
+    return () => {
+      cancelled = true;
+      void client.removeChannel(channel);
+    };
+  }, []);
+
+  return denied;
+}
+
 /** Hidden control panel used during judging. Not linked from any nav. */
 export function DemoPanel() {
   const { day, setDay, error } = useDemoDay();
-  const [running, setRunning] = useState<DemoAction | null>(null);
+  const denied = usePaDenied();
+  const next = nextScene(day, denied);
+  // Key of the control that is running (e.g. "jump:24", "scene:3"), for its spinner.
+  const [running, setRunning] = useState<string | null>(null);
 
-  async function run(action: DemoAction, dayArg?: number) {
-    setRunning(action);
+  async function run(key: string, label: string, action: DemoAction, dayArg?: number) {
+    setRunning(key);
     try {
       const res = await demo(action === "jump" || action === "advance" ? { action, day: dayArg } : { action });
       setDay(res.day); // Realtime confirms; this keeps the counter instant.
-      toast.success(`Day ${res.day}`, { description: ACTIONS.find((a) => a.action === action)?.label });
+      toast.success(`Day ${res.day}`, { description: label });
     } catch (e) {
-      toast.error("Demo action failed", { description: e instanceof Error ? e.message : "Please try again." });
+      toast.error(`${label} failed`, { description: e instanceof Error ? e.message : "Please try again." });
     } finally {
       setRunning(null);
     }
+  }
+
+  function actionButton({ action, testId, label, hint, icon: Icon, tone, day: dayArg }: PanelAction) {
+    const key = `${action}:${dayArg ?? ""}`;
+    return (
+      <Button
+        key={testId}
+        variant={tone === "danger" ? "destructive" : "outline"}
+        className="h-auto min-h-16 justify-start gap-3 px-4 py-3 text-left whitespace-normal"
+        disabled={running !== null}
+        onClick={() => run(key, label, action, dayArg)}
+        data-testid={testId}
+      >
+        {running === key ? (
+          <LoaderCircle aria-hidden className="size-5! animate-spin motion-reduce:animate-none" />
+        ) : (
+          <Icon aria-hidden className="size-5!" />
+        )}
+        <span className="flex flex-col">
+          <span className="text-base font-bold">{label}</span>
+          {/* Dark outline buttons tint the ground; muted ink drops to 4.25:1 there. */}
+          <span className={cn("text-sm font-normal", tone === "danger" ? "opacity-90" : "text-muted-foreground dark:text-foreground/85")}>
+            {hint}
+          </span>
+        </span>
+      </Button>
+    );
   }
 
   return (
@@ -141,35 +234,56 @@ export function DemoPanel() {
           </p>
         </section>
 
-        <section aria-label="Demo actions" className="grid gap-3 sm:grid-cols-2">
-          {ACTIONS.map(({ action, testId, label, hint, icon: Icon, tone, day: dayArg }) => {
-            const ready = READY.has(action);
-            const busy = running === action;
-            return (
-              <Button
-                key={action}
-                variant={tone === "danger" && ready ? "destructive" : "outline"}
-                className={cn("h-auto min-h-16 justify-start gap-3 px-4 py-3 text-left whitespace-normal", !ready && "border-dashed")}
-                disabled={!ready || running !== null}
-                onClick={() => run(action, dayArg)}
-                data-testid={testId}
-                data-ready={ready}
-              >
-                {busy ? (
-                  <LoaderCircle aria-hidden className="size-5! animate-spin motion-reduce:animate-none" />
-                ) : (
-                  <Icon aria-hidden className="size-5!" />
-                )}
-                <span className="flex flex-col">
-                  <span className="text-base font-bold">{label}</span>
-                  {/* Dark outline buttons tint the ground; muted ink drops to 4.25:1 there. */}
-                  <span className="text-sm font-normal text-muted-foreground dark:text-foreground/85">
-                    {ready ? hint : "Coming in A6"}
-                  </span>
-                </span>
-              </Button>
-            );
-          })}
+        <section aria-labelledby="stage-scenes" className="flex flex-col gap-3">
+          <h2 id="stage-scenes" className="text-sm font-bold tracking-wide text-muted-foreground uppercase">
+            Stage scenes
+          </h2>
+          <ol className="grid grid-cols-2 gap-2 sm:grid-cols-5">
+            {SCENES.map((s) => {
+              const key = `scene:${s.n}`;
+              const isNext = next === s.n;
+              const locked = s.minDay !== undefined && (day === null || day < s.minDay);
+              return (
+                <li key={s.n} className="contents">
+                  <Button
+                    variant={isNext ? "default" : "outline"}
+                    className={cn(
+                      "h-auto min-h-20 flex-col items-start gap-1 px-3 py-3 text-left whitespace-normal",
+                      isNext && "ring-2 ring-ring ring-offset-2 ring-offset-background"
+                    )}
+                    disabled={running !== null || locked}
+                    aria-current={isNext ? "step" : undefined}
+                    onClick={() => run(key, `${s.mark} ${s.label}`, s.action, s.day)}
+                    data-testid={`demo-scene-${s.n}`}
+                    data-next={isNext}
+                  >
+                    <span className="flex items-center gap-2 text-base font-bold">
+                      {running === key ? (
+                        <LoaderCircle aria-hidden className="size-4! animate-spin motion-reduce:animate-none" />
+                      ) : (
+                        <span aria-hidden>{s.mark}</span>
+                      )}
+                      <span>{s.label}</span>
+                    </span>
+                    <span className={cn("text-xs font-normal", isNext ? "opacity-90" : "text-muted-foreground dark:text-foreground/85")}>
+                      {locked ? `Available from day ${s.minDay}` : s.hint}
+                    </span>
+                  </Button>
+                </li>
+              );
+            })}
+          </ol>
+        </section>
+
+        <section aria-label="Demo clock controls" className="grid gap-3 sm:grid-cols-2">
+          {ACTIONS.map(actionButton)}
+        </section>
+
+        <section aria-labelledby="insurer-decision" className="flex flex-col gap-3">
+          <h2 id="insurer-decision" className="text-sm font-bold tracking-wide text-muted-foreground uppercase">
+            Insurer decision
+          </h2>
+          <div className="grid gap-3 sm:grid-cols-3">{INSURER_ACTIONS.map(actionButton)}</div>
         </section>
 
         <nav aria-label="Portals" className="flex flex-wrap items-center gap-2 text-sm">
