@@ -1,10 +1,10 @@
 "use client";
 
-import { Bell, BellOff, ExternalLink, Languages, MapPin, RotateCcw, TriangleAlert, Users } from "lucide-react";
+import { Bell, BellOff, ExternalLink, Languages, MapPin, RotateCcw, TriangleAlert } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 
-import { AppHeader } from "@/components/AppHeader";
+import { DashboardShell, DashCard } from "@/components/shell/DashboardShell";
 import { AgentTimeline, type Decision } from "@/components/AgentTimeline";
 import { CheckInStrip, checkInEvents, FlagPills } from "@/components/checkins/CheckInBits";
 import type { CheckInView } from "@/components/checkins/types";
@@ -13,7 +13,6 @@ import type { AlertRow, PatientRow } from "@/components/fixtures";
 import { ALERT, alertTone } from "@/components/labels";
 import { StatusPill, TONE_CLASSES } from "@/components/StatusPill";
 import { Button } from "@/components/ui/button";
-import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { Skeleton } from "@/components/ui/skeleton";
 import { HAS_SUPABASE, useLiveEvents } from "@/components/useLiveEvents";
 import { VoiceButton } from "@/components/VoiceButton";
@@ -41,7 +40,6 @@ function scrollToPending(): boolean {
 /** Doctor portal: calm, dense, fast. Patients · voice + timeline · alerts. */
 export function DoctorConsole() {
   const [selectedId, setSelectedId] = useState<string>(MARIA_ID);
-  const [patientsOpen, setPatientsOpen] = useState(false);
   const [letterRx, setLetterRx] = useState<string | null>(null);
   const [letterOpen, setLetterOpen] = useState(false);
   // Set by alert actions: scroll to the approval card once the patient's steps load.
@@ -119,7 +117,6 @@ export function DoctorConsole() {
 
   function openPatient(id: string) {
     setSelectedId(id);
-    setPatientsOpen(false);
   }
 
   function openLetter(rx: string) {
@@ -152,68 +149,87 @@ export function DoctorConsole() {
   );
 
   return (
-    <div className="flex min-h-full flex-1 flex-col">
-      <AppHeader portal="Doctor portal">
-        <Sheet open={patientsOpen} onOpenChange={setPatientsOpen}>
-          <SheetTrigger render={<Button variant="outline" size="sm" className="lg:hidden" />}>
-            <Users aria-hidden /> Patients
-          </SheetTrigger>
-          <SheetContent side="left" className="w-80 p-0">
-            <SheetHeader className="border-b border-line">
-              <SheetTitle>Today&apos;s patients</SheetTitle>
-            </SheetHeader>
-            <div className="overflow-y-auto p-2">{patientList}</div>
-          </SheetContent>
-        </Sheet>
-      </AppHeader>
-
-      <div className="mx-auto grid w-full max-w-[1600px] flex-1 content-start items-start gap-4 p-4 lg:grid-cols-[280px_minmax(0,1fr)_320px] lg:p-6">
-        <aside aria-label="Today's patients" className="hidden lg:block">
-          <Panel title="Today" count={doctor.state === "ready" ? doctor.rows.length : undefined}>
-            {patientList}
-          </Panel>
-        </aside>
-
-        <main className="flex min-w-0 flex-col gap-4">
-          <PatientHeader row={selected} loading={doctor.state === "loading"}>
-            <CheckInStrip latest={checkins.latest} nameFor={nameFor} />
-          </PatientHeader>
-
-          <section aria-label="New prescription by voice" className="rounded-2xl border border-line bg-card p-5">
+    <DashboardShell
+      portal="doctor"
+      title="Doctor"
+      subtitle={selected ? `${selected.patient.name}'s prescription, live` : "Today's patients"}
+      sections={[
+        { id: "patient", label: "Patient" },
+        { id: "voice", label: "New prescription" },
+        { id: "activity", label: "Agent activity" },
+        { id: "alerts", label: "Alerts" },
+        { id: "today", label: "Today's patients" },
+      ]}
+    >
+      <div className="grid grid-cols-[minmax(0,1fr)] items-start gap-4 lg:grid-cols-2 xl:grid-cols-[minmax(0,1fr)_minmax(0,1.3fr)_minmax(0,1fr)]">
+        <div className="flex min-w-0 flex-col gap-4">
+          <div id="patient" className="scroll-mt-20">
+            <PatientHeader row={selected} loading={doctor.state === "loading"}>
+              <CheckInStrip latest={checkins.latest} nameFor={nameFor} />
+            </PatientHeader>
+          </div>
+          <DashCard id="voice" title="New prescription" meta={<span className="text-xs text-muted-foreground">Hold to talk</span>}>
             <VoiceButton onTranscript={handleTranscript} />
-          </section>
+          </DashCard>
+          <DashCard
+            id="today"
+            title="Today"
+            meta={
+              doctor.state === "ready" ? (
+                <span className="grid size-8 place-items-center rounded-full bg-muted font-mono text-xs tabular">{doctor.rows.length}</span>
+              ) : undefined
+            }
+            bodyClassName="p-2"
+          >
+            {patientList}
+          </DashCard>
+        </div>
 
-          <section aria-labelledby="timeline-title" className="rounded-2xl border border-line bg-card p-5">
-            <div className="mb-4 flex items-center justify-between gap-2">
-              <h2 id="timeline-title" className="text-base font-bold">
-                Agent activity
-              </h2>
-              <span className="text-xs text-muted-foreground">{live.source === "live" ? "Live" : "Offline fixtures"}</span>
-            </div>
-            {live.state === "ready" && (
+        <DashCard
+          id="activity"
+          title="Agent activity"
+          meta={<span className="text-xs text-muted-foreground">{live.source === "live" ? "Live" : "Offline fixtures"}</span>}
+          className="lg:row-span-2 xl:row-span-1"
+        >
+          <AgentTimeline
+            events={events}
+            state={live.state}
+            error={live.error}
+            onRetry={live.retry}
+            onDecision={(event, decision) => decide(event, decision)}
+            onOpenLetter={(event) => event.rx_id && openLetter(event.rx_id)}
+            density="dense"
+            emptyTitle={`Nothing in motion for ${selected?.patient.name.split(" ")[0] ?? "this patient"}`}
+            emptyHint="Hold the mic and say the prescription to start."
+          />
+        </DashCard>
+
+        <div className="flex min-w-0 flex-col gap-4">
+          {live.state === "ready" && agentEvents.some((e) => e.agent === "intake") && (
+            <DashCard feature id="echo-did">
               <RelaySummary
                 events={agentEvents}
                 checkIns={checkins.checkIns}
                 patientFirstName={patientFirst}
                 recipients={recipients}
+                className="mb-0 border-0 bg-transparent p-0"
               />
-            )}
-            <AgentTimeline
-              events={events}
-              state={live.state}
-              error={live.error}
-              onRetry={live.retry}
-              onDecision={(event, decision) => decide(event, decision)}
-              onOpenLetter={(event) => event.rx_id && openLetter(event.rx_id)}
-              density="dense"
-              emptyTitle={`Nothing in motion for ${selected?.patient.name.split(" ")[0] ?? "this patient"}`}
-              emptyHint="Hold the mic and say the prescription to start."
-            />
-          </section>
-        </main>
-
-        <aside aria-label="Alerts">
-          <Panel title="Alerts" count={doctor.state === "ready" ? doctor.alerts.length : undefined} icon={Bell}>
+            </DashCard>
+          )}
+          <DashCard
+            id="alerts"
+            title={
+              <span className="inline-flex items-center gap-2">
+                <Bell aria-hidden className="size-4 text-muted-foreground" /> Alerts
+              </span>
+            }
+            meta={
+              doctor.state === "ready" ? (
+                <span className="grid size-8 place-items-center rounded-full bg-muted font-mono text-xs tabular">{doctor.alerts.length}</span>
+              ) : undefined
+            }
+            bodyClassName="p-2"
+          >
             <AlertsInbox
               alerts={doctor.alerts}
               latestCheckInFor={latestCheckInFor}
@@ -221,8 +237,8 @@ export function DoctorConsole() {
               onRetry={doctor.retry}
               onAction={handleAlert}
             />
-          </Panel>
-        </aside>
+          </DashCard>
+        </div>
       </div>
 
       {letterRx && (
@@ -235,32 +251,7 @@ export function DoctorConsole() {
           onApprove={(event, via) => decide(event, "approve", via)}
         />
       )}
-    </div>
-  );
-}
-
-function Panel({
-  title,
-  count,
-  icon: Icon,
-  children,
-}: {
-  title: string;
-  count?: number;
-  icon?: typeof Bell;
-  children: React.ReactNode;
-}) {
-  return (
-    <section className="rounded-2xl border border-line bg-card">
-      <div className="flex items-center gap-2 border-b border-line px-4 py-3">
-        {Icon && <Icon aria-hidden className="size-4 text-muted-foreground" />}
-        <h2 className="text-sm font-bold">{title}</h2>
-        {count !== undefined && (
-          <span className="ml-auto rounded-full bg-muted px-2 font-mono text-xs leading-5 tabular">{count}</span>
-        )}
-      </div>
-      <div className="p-2">{children}</div>
-    </section>
+    </DashboardShell>
   );
 }
 
@@ -367,7 +358,7 @@ function PatientHeader({
   return (
     <section className="flex flex-wrap items-center gap-x-4 gap-y-2 rounded-2xl border border-line bg-card px-5 py-4">
       <div className="min-w-0">
-        <h1 className="truncate text-2xl font-bold">{patient.name}</h1>
+        <h2 className="truncate text-2xl font-bold">{patient.name}</h2>
         <p className="mt-0.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-muted-foreground">
           <span className="inline-flex items-center gap-1">
             <Languages aria-hidden className="size-3.5" />

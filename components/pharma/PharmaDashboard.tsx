@@ -3,7 +3,7 @@
 import { RotateCcw, Search, TriangleAlert } from "lucide-react";
 import { useId, useMemo, useState } from "react";
 
-import { AppHeader } from "@/components/AppHeader";
+import { DashboardShell, DashCard } from "@/components/shell/DashboardShell";
 import { BRAND } from "@/components/brand";
 import { AgentTimeline } from "@/components/AgentTimeline";
 import { LocalTime } from "@/components/LocalTime";
@@ -47,80 +47,85 @@ export function PharmaDashboard() {
   );
 
   return (
-    <div className="flex min-h-full flex-1 flex-col">
-      <AppHeader portal="Pharma dashboard" />
-
-      <main className="mx-auto flex w-full max-w-[1400px] flex-col gap-6 p-4 lg:p-8">
-        <div>
-          <h1 className="text-3xl font-bold">Access performance</h1>
-          <p className="mt-1 text-muted-foreground">Every prescription {BRAND.name} carried, from decision to delivery.</p>
-        </div>
-
+    <DashboardShell
+      portal="pharma"
+      title="Pharma"
+      subtitle={`Every prescription ${BRAND.name} carried, from decision to delivery.`}
+      sections={[
+        { id: "metrics", label: "Key metrics" },
+        { id: "charts", label: "Scripts rescued" },
+        { id: "mix", label: "Program mix" },
+        { id: "feed", label: "Live feed" },
+        { id: "audit", label: "Audit trail" },
+      ]}
+    >
+      <div className="grid grid-cols-[minmax(0,1fr)] items-start gap-4 md:grid-cols-2 xl:grid-cols-4">
         <Kpis metrics={data.metrics} state={data.metricsState} paSubmitted={data.paSubmitted} onRetry={data.retry} />
 
-        <section className="grid gap-4 lg:grid-cols-2" aria-label="Charts">
-          <ChartCard
-            title="Scripts rescued over time"
-            subtitle="Cumulative, by demo day"
-            state={data.metricsState}
-            onRetry={data.retry}
-            empty={!data.metrics?.rescuedSeries.length}
-            table={
-              data.metrics && (
-                <DataTable
-                  head={["Demo day", "Scripts rescued"]}
-                  rows={data.metrics.rescuedSeries.map((r) => [String(r.day), int.format(r.count)])}
-                />
-              )
-            }
-          >
-            {data.metrics && <RescuedLineChart series={data.metrics.rescuedSeries} />}
-          </ChartCard>
-
-          <ChartCard
-            title="Program mix"
-            subtitle="Prescriptions by access path"
-            state={data.metricsState}
-            onRetry={data.retry}
-            empty={!data.metrics}
-            table={
-              data.metrics && (
-                <DataTable
-                  head={["Access path", "Prescriptions"]}
-                  rows={programRows(data.metrics.programMix).map((r) => [r.label, int.format(r.count)])}
-                />
-              )
-            }
-          >
-            {data.metrics && <ProgramMixChart mix={data.metrics.programMix} />}
-          </ChartCard>
-        </section>
-
-        <div className="grid gap-4 lg:grid-cols-[minmax(0,2fr)_minmax(0,3fr)]">
-          <section aria-labelledby="feed-title" className="min-w-0 rounded-2xl border border-line bg-card p-5">
-            <div className="mb-4 flex items-baseline justify-between gap-2">
-              <h2 id="feed-title" className="text-lg font-bold">
-                Live agent feed
-              </h2>
-              <span className="text-xs text-muted-foreground">De-identified</span>
-            </div>
-            <div className="max-h-[640px] overflow-y-auto pr-1">
-              <AgentTimeline
-                events={feed}
-                state={live.state}
-                error={live.error}
-                onRetry={live.retry}
-                readOnly
-                density="comfortable"
-                emptyHint="Agent steps from every portal stream here, without patient names."
+        <ChartCard
+          id="charts"
+          className="md:col-span-2 xl:col-span-3"
+          title="Scripts rescued over time"
+          subtitle="Cumulative, by demo day"
+          state={data.metricsState}
+          onRetry={data.retry}
+          empty={!data.metrics?.rescuedSeries.length}
+          table={
+            data.metrics && (
+              <DataTable
+                head={["Demo day", "Scripts rescued"]}
+                rows={data.metrics.rescuedSeries.map((r) => [String(r.day), int.format(r.count)])}
               />
-            </div>
-          </section>
+            )
+          }
+        >
+          {data.metrics && <RescuedLineChart series={data.metrics.rescuedSeries} />}
+        </ChartCard>
 
+        <ChartCard
+          id="mix"
+          className="md:col-span-2 xl:col-span-2"
+          title="Program mix"
+          subtitle="Prescriptions by access path"
+          state={data.metricsState}
+          onRetry={data.retry}
+          empty={!data.metrics}
+          table={
+            data.metrics && (
+              <DataTable
+                head={["Access path", "Prescriptions"]}
+                rows={programRows(data.metrics.programMix).map((r) => [r.label, int.format(r.count)])}
+              />
+            )
+          }
+        >
+          {data.metrics && <ProgramMixChart mix={data.metrics.programMix} />}
+        </ChartCard>
+
+        <DashCard
+          id="feed"
+          className="md:col-span-2 xl:col-span-2"
+          title="Live agent feed"
+          meta={<span className="text-xs text-muted-foreground">De-identified</span>}
+        >
+          <div className="max-h-[560px] overflow-y-auto pr-1">
+            <AgentTimeline
+              events={feed}
+              state={live.state}
+              error={live.error}
+              onRetry={live.retry}
+              readOnly
+              density="comfortable"
+              emptyHint="Agent steps from every portal stream here, without patient names."
+            />
+          </div>
+        </DashCard>
+
+        <div id="audit" className="scroll-mt-20 md:col-span-2 xl:col-span-4">
           <AuditTrail rows={data.audit} state={data.auditState} onRetry={data.retry} />
         </div>
-      </main>
-    </div>
+      </div>
+    </DashboardShell>
   );
 }
 
@@ -184,14 +189,32 @@ function Kpis({
   ];
 
   return (
-    <section aria-label="Key metrics" className="grid grid-cols-2 gap-3 lg:grid-cols-4 lg:gap-4">
-      {tiles.map((k) => (
-        <div key={k.id} className="flex flex-col rounded-2xl border border-line bg-card p-4 lg:p-5" data-testid={`kpi-${k.id}`}>
+    <>
+      {tiles.map((k, i) => (
+        <div
+          key={k.id}
+          id={i === 0 ? "metrics" : undefined}
+          data-testid={`kpi-${k.id}`}
+          className={cn(
+            "relative flex scroll-mt-20 flex-col overflow-hidden rounded-2xl border p-5",
+            i === 0
+              ? "dark min-h-[16rem] border-transparent bg-[#0b0f14] text-foreground md:col-span-2 xl:col-span-1 xl:row-span-2 xl:min-h-full"
+              : "border-line bg-card"
+          )}
+        >
+          {i === 0 && (
+            <span aria-hidden className="pointer-events-none absolute -top-20 -right-16 size-64 rounded-full bg-[var(--echo-accent)] opacity-25 blur-3xl" />
+          )}
           <div className="flex flex-wrap items-center justify-between gap-1">
             <p className="text-sm text-muted-foreground">{k.label}</p>
             {k.sample && <SampleBadge />}
           </div>
-          <div className="mt-2 font-heading text-3xl font-light tracking-tight tabular lg:text-4xl">
+          <div
+            className={cn(
+              "relative mt-2 font-heading font-light tracking-tight tabular",
+              i === 0 ? "mt-auto text-[clamp(4.5rem,7vw,7rem)] leading-none text-[var(--echo-accent)]" : "text-3xl lg:text-4xl"
+            )}
+          >
             {k.value !== null ? (
               <CountUp value={k.value} format={k.format} />
             ) : k.sample && state === "error" ? (
@@ -206,14 +229,16 @@ function Kpis({
               <Skeleton className="h-9 w-20" />
             )}
           </div>
-          <p className="mt-1 text-xs text-muted-foreground">{k.hint}</p>
+          <p className="relative mt-1 text-xs text-muted-foreground">{k.hint}</p>
         </div>
       ))}
-    </section>
+    </>
   );
 }
 
 function ChartCard({
+  id,
+  className,
   title,
   subtitle,
   state,
@@ -222,6 +247,8 @@ function ChartCard({
   table,
   children,
 }: {
+  id?: string;
+  className?: string;
   title: string;
   subtitle: string;
   state: Load;
@@ -231,7 +258,7 @@ function ChartCard({
   children: React.ReactNode;
 }) {
   return (
-    <section className="min-w-0 rounded-2xl border border-line bg-card p-5" aria-label={title}>
+    <section id={id} className={cn("min-w-0 scroll-mt-20 rounded-2xl border border-line bg-card p-5", className)} aria-label={title}>
       <div className="flex flex-wrap items-start justify-between gap-2">
         <div>
           <h2 className="text-lg font-bold">{title}</h2>

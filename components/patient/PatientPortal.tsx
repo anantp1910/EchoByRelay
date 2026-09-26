@@ -5,7 +5,7 @@ import { Check, CreditCard, HeartHandshake, Inbox, Pill, RotateCcw, SearchX, Use
 import Link from "next/link";
 import { useState } from "react";
 
-import { FixtureBadge, RelayMark } from "@/components/AppHeader";
+import { DashboardShell, DashCard } from "@/components/shell/DashboardShell";
 import { BRAND } from "@/components/brand";
 import { CheckInCard, CheckInHistory, CheckInNudge } from "@/components/checkins/CheckInCard";
 import { useCheckIns } from "@/components/checkins/useCheckIns";
@@ -216,42 +216,33 @@ export function PatientPortal({ patientId }: { patientId: string }) {
       )
     : [];
 
-  return (
-    <div className="min-h-full flex-1 text-lg">
-      <header className="sticky top-[env(safe-area-inset-top,0px)] z-20 border-b border-line bg-card/95 backdrop-blur">
-        <div className="mx-auto flex h-16 max-w-xl items-center gap-2 px-4">
-          <RelayMark />
-          <FixtureBadge />
-          <LangToggle lang={lang} onChange={(l) => setLangChoice({ viewer, lang: l })} />
-        </div>
-      </header>
+  const title = !patient
+    ? t.home
+    : viewer === "member" && member
+      ? t.helloFor(first(member.name), first(patient.name))
+      : t.hello(first(patient.name));
 
-      {data.state === "loading" ? (
-        <main className="mx-auto flex max-w-xl flex-col gap-5 px-4 py-6" aria-busy="true" aria-label="Loading">
-          <Skeleton className="h-10 w-2/3" />
-          <Skeleton className="h-48 w-full rounded-2xl" />
-          <Skeleton className="h-64 w-full rounded-2xl" />
-        </main>
-      ) : data.state === "error" ? (
-        <main className="mx-auto flex max-w-xl flex-col items-center gap-3 px-4 py-20 text-center" role="alert">
-          <h1 className="text-2xl font-bold">{t.loadError}</h1>
-          {data.error && <p className="text-muted-foreground">{data.error}</p>}
-          <Button size="lg" variant="outline" className="h-12 text-base" onClick={data.retry}>
-            <RotateCcw aria-hidden /> {t.retry}
-          </Button>
-        </main>
-      ) : data.state === "not_found" || !patient ? (
-        <main className="mx-auto flex max-w-xl flex-col items-center gap-3 px-4 py-20 text-center">
-          <SearchX aria-hidden className="size-10 text-muted-foreground" />
-          <h1 className="text-2xl font-bold">{t.notFound}</h1>
-          <p className="text-muted-foreground">{t.notFoundHint}</p>
-          <Link href="/" className="mt-2 inline-flex min-h-11 items-center rounded font-medium text-[var(--echo-accent)] underline underline-offset-4">
-            {t.home}
-          </Link>
-        </main>
-      ) : (
-        <main lang={lang} className="mx-auto flex max-w-xl flex-col gap-5 px-4 py-6 pb-16">
-          {member && (
+  return (
+    <DashboardShell
+      portal="patient"
+      lang={lang}
+      title={title}
+      subtitle={patient && viewer === "patient" ? t.sub : undefined}
+      sections={
+        patient
+          ? [
+              { id: "status", label: lang === "es" ? "Estado" : "Status" },
+              ...(rx && checkins.due ? [{ id: "checkin", label: lang === "es" ? "Registro" : "Check-in" }] : []),
+              { id: "medicine", label: t.medicine },
+              { id: "progress", label: t.progress },
+              ...(viewer === "member" && member?.can_pay ? [{ id: "payment", label: t.pay }] : []),
+              { id: "circle", label: t.circle },
+            ]
+          : []
+      }
+      actions={
+        <>
+          {patient && member && (
             <ViewerSwitch
               label={t.viewingAs}
               viewer={viewer}
@@ -259,21 +250,56 @@ export function PatientPortal({ patientId }: { patientId: string }) {
               names={{ patient: first(patient.name), member: first(member.name) }}
             />
           )}
-
-          <section>
-            <h1 className="text-3xl font-bold sm:text-4xl">
-              {viewer === "member" && member
-                ? t.helloFor(first(member.name), first(patient.name))
-                : t.hello(first(patient.name))}
-            </h1>
-            {viewer === "patient" && <p className="mt-1 text-muted-foreground">{t.sub}</p>}
-            {rx && (
-              <StatusPill status={rx.status} label={t.status[rx.status]} size="lg" className="mt-3" />
-            )}
-          </section>
+          <LangToggle lang={lang} onChange={(l) => setLangChoice({ viewer, lang: l })} />
+        </>
+      }
+    >
+      <div className="text-lg">
+      {data.state === "loading" ? (
+        <div className="grid grid-cols-[minmax(0,1fr)] gap-4 lg:grid-cols-2 xl:grid-cols-3" aria-busy="true" aria-label="Loading">
+          <Skeleton className="h-56 w-full rounded-2xl" />
+          <Skeleton className="h-56 w-full rounded-2xl" />
+          <Skeleton className="h-56 w-full rounded-2xl" />
+        </div>
+      ) : data.state === "error" ? (
+        <div className="flex max-w-xl flex-col items-start gap-3 py-10" role="alert">
+          <p className="text-2xl">{t.loadError}</p>
+          {data.error && <p className="text-muted-foreground">{data.error}</p>}
+          <Button size="lg" variant="outline" className="h-12 text-base" onClick={data.retry}>
+            <RotateCcw aria-hidden /> {t.retry}
+          </Button>
+        </div>
+      ) : data.state === "not_found" || !patient ? (
+        <div className="flex max-w-xl flex-col items-start gap-3 py-10">
+          <SearchX aria-hidden className="size-10 text-muted-foreground" />
+          <p className="text-2xl">{t.notFound}</p>
+          <p className="text-muted-foreground">{t.notFoundHint}</p>
+          <Link href="/" className="mt-2 inline-flex min-h-11 items-center rounded font-medium text-[var(--echo-accent)] underline underline-offset-4">
+            {t.home}
+          </Link>
+        </div>
+      ) : (
+        <div lang={lang} className="grid grid-cols-[minmax(0,1fr)] items-start gap-4 lg:grid-cols-2 xl:grid-cols-3">
+          {/* Feature card: where the medicine is, in one line. */}
+          <DashCard feature id="status" className="lg:col-span-2 xl:col-span-1 xl:row-span-2">
+            <div className="flex min-h-[15rem] flex-col">
+              <div className="flex items-start justify-between gap-3">
+                {rx ? <StatusPill status={rx.status} label={t.status[rx.status]} size="lg" /> : <span />}
+                {data.day !== null && <span className="font-mono text-base text-muted-foreground">{t.day(data.day)}</span>}
+              </div>
+              {/* eslint-disable-next-line @next/next/no-img-element -- local static pill art */}
+              <img src="/echo-pill.svg" alt="" aria-hidden className="mx-auto my-4 w-40 drop-shadow-[0_0_30px_rgba(95,230,218,0.35)]" draggable={false} />
+              <p className="mt-auto font-[family-name:var(--font-figtree)] text-[clamp(1.9rem,3vw,2.6rem)] leading-tight font-light">
+                {rx ? t.steps[Math.min(step, t.steps.length - 1)] : t.noRx}
+              </p>
+              <p className="mt-1 text-base text-muted-foreground">
+                {DEMO_DRUG.name} {DEMO_DRUG.dose}
+              </p>
+            </div>
+          </DashCard>
 
           {rx && checkins.due && (
-            <>
+            <div id="checkin" className="flex scroll-mt-20 flex-col gap-4 lg:col-span-2">
               {viewer === "member" && (
                 <CheckInNudge due={checkins.due} lang={lang} patientFirstName={first(patient.name)} />
               )}
@@ -287,10 +313,10 @@ export function PatientPortal({ patientId }: { patientId: string }) {
                 proxyMemberId={viewer === "member" && member ? member.id : null}
                 onSubmit={checkins.submit}
               />
-            </>
+            </div>
           )}
 
-          <Card>
+          <Card id="medicine">
             <CardTitle icon={Pill}>{viewer === "member" ? t.medicineFor(first(patient.name)) : t.medicine}</CardTitle>
             {rx ? (
               <dl className="mt-4 grid gap-4">
@@ -319,7 +345,7 @@ export function PatientPortal({ patientId }: { patientId: string }) {
             )}
           </Card>
 
-          <Card>
+          <Card id="progress">
             <div className="flex items-baseline justify-between gap-2">
               <CardTitle>{t.progress}</CardTitle>
               {data.day !== null && <span className="font-mono text-base text-muted-foreground">{t.day(data.day)}</span>}
@@ -328,10 +354,8 @@ export function PatientPortal({ patientId }: { patientId: string }) {
             {data.mandate?.recurring && <p className="mt-3 text-base text-ok-strong">{t.refillOn}</p>}
           </Card>
 
-          {rx && <CheckInHistory checkIns={checkins.checkIns} lang={lang} nameFor={nameFor} />}
-
           {viewer === "member" && member?.can_pay && (
-            <Card>
+            <Card id="payment">
               <div className="flex items-center justify-between gap-2">
                 <CardTitle icon={CreditCard}>{t.pay}</CardTitle>
                 <SimulatedBadge label="Simulated Visa" />
@@ -358,12 +382,19 @@ export function PatientPortal({ patientId }: { patientId: string }) {
             </Card>
           )}
 
-          <Card>
+          <Card id="circle">
             <CardTitle icon={HeartHandshake}>{t.circle}</CardTitle>
             <Feed messages={feed} circle={circle} lang={lang} t={t} />
           </Card>
-        </main>
+
+          {rx && (
+            <div className="lg:col-span-2 xl:col-span-1">
+              <CheckInHistory checkIns={checkins.checkIns} lang={lang} nameFor={nameFor} />
+            </div>
+          )}
+        </div>
       )}
+      </div>
 
       {payable && order && member && (
         <CheckoutSheet
@@ -376,7 +407,7 @@ export function PatientPortal({ patientId }: { patientId: string }) {
           lang={lang}
         />
       )}
-    </div>
+    </DashboardShell>
   );
 }
 
@@ -505,8 +536,12 @@ function LangToggle({ lang, onChange }: { lang: Language; onChange: (l: Language
   );
 }
 
-function Card({ children }: { children: React.ReactNode }) {
-  return <section className="rounded-2xl border border-line bg-card p-5 shadow-sm sm:p-6">{children}</section>;
+function Card({ id, children }: { id?: string; children: React.ReactNode }) {
+  return (
+    <section id={id} className="min-w-0 scroll-mt-20 rounded-2xl border border-line bg-card p-5 sm:p-6">
+      {children}
+    </section>
+  );
 }
 
 function CardTitle({ children, icon: Icon }: { children: React.ReactNode; icon?: typeof Pill }) {

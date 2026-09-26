@@ -288,7 +288,8 @@
   --wordmark: #626b7c;
 }
 .dark .echo,
-.echo.dark {
+.echo.dark,
+.echo .dark {
   --background: #0e131a;
   --foreground: #e3e8ef;
   --card: #141b24;

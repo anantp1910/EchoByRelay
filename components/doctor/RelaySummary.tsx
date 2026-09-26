@@ -7,6 +7,7 @@ import type { CheckInView } from "@/components/checkins/types";
 import { BRAND } from "@/components/brand";
 import { isRouterProgram, PROGRAM } from "@/components/labels";
 import { SimulatedBadge } from "@/components/SimulatedBadge";
+import { cn } from "@/lib/utils";
 import type { AgentEvent } from "@/lib/db/types";
 
 // Staff minutes a human would otherwise spend, per item. Placeholders: change
@@ -112,7 +113,9 @@ export function RelaySummary({
   checkIns,
   patientFirstName,
   recipients,
+  className,
 }: {
+  className?: string;
   events: AgentEvent[];
   checkIns: CheckInView[];
   patientFirstName: string;
@@ -128,7 +131,7 @@ export function RelaySummary({
   return (
     <section
       aria-labelledby="relay-summary-title"
-      className="mb-5 rounded-xl border border-primary/30 bg-accent/60 p-4"
+      className={cn("mb-5 rounded-xl border border-primary/30 bg-accent/60 p-4", className)}
       data-testid="relay-summary"
     >
       <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-2">
