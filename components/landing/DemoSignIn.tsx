@@ -1,67 +1,77 @@
 "use client";
 
-import { ArrowRight, BarChart3, HeartHandshake, Stethoscope, type LucideIcon } from "lucide-react";
+import { motion, type Variants } from "framer-motion";
+import { ArrowRight } from "lucide-react";
 import Link from "next/link";
 
 import { setDemoRole, type DemoRole } from "@/components/role";
 import { DEMO_PRESCRIBER, MARIA_ID } from "@/lib/demo/constants";
 
+import { Reveal } from "./motion";
 import { prescriberShortName } from "./prescriber";
 
-const ROLES: { role: DemoRole; href: string; who: string; sub: string; icon: LucideIcon }[] = [
+const MotionLink = motion.create(Link);
+
+const ROLES: { role: DemoRole; href: string; who: string; sub: string }[] = [
   {
     role: "doctor",
     href: "/doctor",
     who: `Doctor · ${prescriberShortName()}`,
     sub: `${DEMO_PRESCRIBER.specialty} · ${DEMO_PRESCRIBER.clinic}`,
-    icon: Stethoscope,
   },
-  {
-    role: "patient",
-    href: `/patient/${MARIA_ID}`,
-    who: "Patient · Maria / Ana",
-    sub: "Maria's phone, in Spanish, and her daughter Ana's view",
-    icon: HeartHandshake,
-  },
-  {
-    role: "pharma",
-    href: "/pharma",
-    who: "Pharma",
-    sub: "Scripts rescued, time to therapy, the audit trail",
-    icon: BarChart3,
-  },
+  { role: "patient", href: `/patient/${MARIA_ID}`, who: "Patient · Maria / Ana", sub: "Maria's phone in Spanish, and her daughter Ana's view" },
+  { role: "pharma", href: "/pharma", who: "Pharma", sub: "Scripts rescued, time to therapy, the full audit trail" },
 ];
+
+const EASE = [0.22, 1, 0.36, 1] as const;
+const line: Variants = { rest: { scaleX: 0 }, hover: { scaleX: 1, transition: { duration: 0.45, ease: EASE } } };
+const circle: Variants = {
+  rest: { rotate: -45, backgroundColor: "rgba(0,0,0,0)", color: "var(--color-foreground)" },
+  hover: {
+    rotate: 0,
+    backgroundColor: "var(--color-foreground)",
+    color: "var(--color-background)",
+    transition: { duration: 0.3, ease: EASE },
+  },
+};
 
 /** Demo sign-in: picks a portal. No accounts, no passwords, nothing sent. */
 export function DemoSignIn() {
   return (
-    <section aria-labelledby="signin-title" className="mx-auto max-w-5xl px-5 py-28 lg:px-8">
-      <p className="font-mono text-xs tracking-[0.2em] text-ice-strong uppercase">Demo sign-in · no real accounts</p>
-      <h2 id="signin-title" className="mt-4 font-heading text-[clamp(2.25rem,5vw,4rem)] leading-[1.02] font-bold tracking-tight">
-        Step onto the path.
-      </h2>
-      <ul className="mt-12 flex flex-col">
-        {ROLES.map(({ role, href, who, sub, icon: Icon }) => (
-          <li key={role} className="border-t border-line last:border-b">
-            <Link
+    <section id="signin" aria-labelledby="signin-title" className="scroll-mt-8 pt-[clamp(7rem,16vh,11rem)] pb-[clamp(4rem,9vh,6rem)]">
+      <Reveal>
+        <p className="text-[0.8rem] font-medium tracking-[0.08em] uppercase">Demo sign-in · no real accounts</p>
+        <h2 id="signin-title" className="mt-6 text-[clamp(2.4rem,4.6vw,4.25rem)] leading-[1.04] font-medium tracking-[-0.03em]">
+          Step onto the path.
+        </h2>
+      </Reveal>
+      <ul className="mt-16 border-t border-line">
+        {ROLES.map(({ role, href, who, sub }, i) => (
+          <li key={role} className="relative border-b border-line">
+            <MotionLink
               href={href}
               onClick={() => setDemoRole(role)}
               data-testid={`signin-${role}`}
-              className="group flex min-h-24 items-center gap-5 rounded-lg px-2 py-5 transition-colors duration-200 hover:bg-ice focus-visible:ring-4 focus-visible:ring-ring/40 focus-visible:outline-none sm:px-4"
+              initial="rest"
+              animate="rest"
+              whileHover="hover"
+              whileFocus="hover"
+              className="grid min-h-28 grid-cols-[3rem_minmax(0,1fr)_auto] items-center gap-4 py-6 focus-visible:outline-none sm:grid-cols-[6rem_minmax(0,1fr)_auto] sm:gap-8"
             >
-              <span className="relative grid size-12 shrink-0 place-items-center rounded-full border border-line bg-background text-primary">
-                <span aria-hidden className="absolute inset-0 rounded-full opacity-0 shadow-[0_0_24px_var(--color-glow)] transition-opacity duration-200 group-hover:opacity-100" />
-                <Icon aria-hidden className="size-5" />
+              <span className="font-mono text-sm text-muted-foreground tabular">{String(i + 1).padStart(2, "0")}</span>
+              <span className="min-w-0">
+                <span className="block text-[clamp(1.5rem,2.6vw,2.25rem)] leading-tight font-medium tracking-[-0.02em]">{who}</span>
+                <span className="mt-1 block text-base text-muted-foreground">{sub}</span>
               </span>
-              <span className="flex min-w-0 flex-1 flex-col">
-                <span className="font-heading text-2xl font-bold sm:text-3xl">{who}</span>
-                <span className="text-base text-muted-foreground">{sub}</span>
-              </span>
-              <span className="hidden items-center gap-2 font-medium text-primary sm:inline-flex">
-                Continue <ArrowRight aria-hidden className="size-5 transition-transform duration-200 group-hover:translate-x-1" />
-              </span>
-              <ArrowRight aria-hidden className="size-5 text-primary sm:hidden" />
-            </Link>
+              <motion.span
+                variants={circle}
+                className="grid size-12 place-items-center rounded-full border border-foreground sm:size-14"
+              >
+                <ArrowRight aria-hidden className="size-5" />
+              </motion.span>
+              {/* Hairline extends under the row on hover/focus. */}
+              <motion.span aria-hidden variants={line} className="absolute right-0 -bottom-px left-0 h-px origin-left bg-foreground" />
+            </MotionLink>
           </li>
         ))}
       </ul>

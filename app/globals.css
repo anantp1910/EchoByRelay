@@ -251,3 +251,21 @@
 @media (prefers-reduced-motion: reduce) {
   .relay-drift { animation: none; }
 }
+
+/* ---------------------------------------------------------------------------
+ * Landing (/) — editorial frame + Geist. Scoped so the portals keep their
+ * fonts until their own redesign phases.
+ * ------------------------------------------------------------------------- */
+:root {
+  --frame-ground: #e6ebeb;
+}
+.dark {
+  --frame-ground: #060f11;
+}
+.landing {
+  --font-display: var(--font-geist);
+  --font-body: var(--font-geist);
+  --font-code: var(--font-geist-mono);
+  font-family: var(--font-geist), ui-sans-serif, system-ui, sans-serif;
+  font-feature-settings: "ss01", "cv11";
+}

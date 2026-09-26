@@ -1,43 +1,54 @@
-import { RelayMark, ThemeToggle } from "@/components/AppHeader";
+import { Geist, Geist_Mono } from "next/font/google";
+import Link from "next/link";
+
+import { ThemeToggle } from "@/components/AppHeader";
+import { Chapters } from "@/components/landing/Chapters";
+import { Closing } from "@/components/landing/Closing";
 import { DemoSignIn } from "@/components/landing/DemoSignIn";
 import { Hero } from "@/components/landing/Hero";
-import { Journey } from "@/components/landing/Journey";
+import { SectionIndex } from "@/components/landing/SectionIndex";
 
-const SPONSORS = ["Impiricus", "Medvantx", "Visa", "xAI Grok", "Meta", "Aramco"];
+// Landing-only type: Geist (the portals move to it in their own phases).
+const geist = Geist({ variable: "--font-geist", subsets: ["latin"] });
+const geistMono = Geist_Mono({ variable: "--font-geist-mono", subsets: ["latin"] });
 
 export default function Home() {
   return (
-    <div className="relative flex min-h-full flex-1 flex-col">
-      <header className="absolute inset-x-0 top-0 z-20 mx-auto flex w-full max-w-7xl items-center justify-between px-5 py-4 lg:px-8">
-        <RelayMark />
-        <ThemeToggle />
-      </header>
-
-      <main className="flex flex-1 flex-col">
-        <Hero />
-        <Journey />
-        <DemoSignIn />
-      </main>
-
-      <footer className="border-t border-line">
-        <div className="mx-auto grid max-w-7xl gap-10 px-5 py-16 lg:grid-cols-[auto_1fr] lg:items-end lg:gap-16 lg:px-8">
-          <div>
-            <p className="font-heading text-[clamp(4.5rem,11vw,9rem)] leading-none font-bold text-primary tabular">29%</p>
-            <p className="mt-3 max-w-sm text-lg">Almost a third of new branded prescriptions never reach the patient.</p>
+    <div className={`landing ${geist.variable} ${geistMono.variable} flex-1 bg-[var(--frame-ground)] p-2 sm:p-3 lg:p-4`}>
+      {/* The framed sheet. overflow-hidden crops the strand at the top edge. */}
+      <div className="relative overflow-hidden rounded-[1.25rem] bg-card text-foreground sm:rounded-[1.75rem]">
+        <header className="relative z-20 flex items-center gap-8 px-5 py-5 sm:px-8 lg:px-16 lg:py-7">
+          <Link
+            href="/"
+            className="inline-flex min-h-11 items-center rounded text-sm font-semibold tracking-[0.32em] uppercase focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:outline-none"
+          >
+            Relay
+          </Link>
+          <nav aria-label="Landing" className="hidden items-center gap-6 text-sm sm:flex">
+            <a href="#journey" className="inline-flex min-h-11 items-center rounded text-muted-foreground hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:outline-none">
+              Journey
+            </a>
+            <a href="#signin" className="inline-flex min-h-11 items-center rounded text-muted-foreground hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:outline-none">
+              Sign in
+            </a>
+          </nav>
+          <div className="ml-auto">
+            <ThemeToggle className="size-11 rounded-full border border-line" />
           </div>
-          <div className="flex flex-col gap-4 text-sm text-muted-foreground">
-            <p className="max-w-2xl" data-testid="honesty-line">
-              The insurer and Medvantx are simulated with shapes that mirror the real systems. All patient data is
-              synthetic. Clinical content comes only from the FDA drug label.
-            </p>
-            <ul className="flex flex-wrap gap-x-5 gap-y-1 font-mono text-xs tracking-[0.14em] uppercase" aria-label="Sponsors">
-              {SPONSORS.map((s) => (
-                <li key={s}>{s}</li>
-              ))}
-            </ul>
-          </div>
+        </header>
+
+        <div className="grid px-5 sm:px-8 lg:grid-cols-[11rem_minmax(0,1fr)] lg:gap-10 lg:px-16">
+          <aside className="hidden lg:block">
+            <SectionIndex />
+          </aside>
+          <main className="min-w-0">
+            <Hero />
+            <Chapters />
+            <DemoSignIn />
+            <Closing />
+          </main>
         </div>
-      </footer>
+      </div>
     </div>
   );
 }

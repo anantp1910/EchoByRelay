@@ -33,7 +33,7 @@ export function RelayMark({ className }: { className?: string }) {
   );
 }
 
-export function ThemeToggle() {
+export function ThemeToggle({ className }: { className?: string } = {}) {
   const { resolvedTheme, setTheme } = useTheme();
   const mounted = useMounted();
   const dark = mounted && resolvedTheme === "dark";
@@ -42,6 +42,7 @@ export function ThemeToggle() {
       variant="ghost"
       size="icon"
       onClick={() => setTheme(dark ? "light" : "dark")}
+      className={className}
       aria-label={mounted ? (dark ? "Switch to light mode" : "Switch to dark mode") : "Toggle color theme"}
     >
       {/* Icons swap via the .dark class, so their markup is identical on server and client. */}
