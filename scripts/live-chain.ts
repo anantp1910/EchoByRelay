@@ -1,8 +1,9 @@
 // npm run live:chain
-// Drives one full Maria chain against a running dev server WITHOUT resetting the
-// shared DB: intake -> wait for the router needs_approval event -> approve ->
-// approve again (idempotent no-op) -> print the agent_events, the enrollment
-// row, and the prescription status/program/expected_delivery_day/indication.
+// Full Maria chain against a running dev server WITHOUT resetting the shared DB:
+//   intake -> wait router needs_approval -> approve (enroll)
+//          -> wait paDrafter needs_approval -> approve (submit_pa)
+// Then GET /api/pa/{rxId} and print the letter, citations, source + latency, and
+// the final agent_events rows.
 //
 // Needs .env.local (service role for reads) and the dev server on :3000
 // (override with LIVE_BASE_URL).
@@ -42,57 +43,68 @@ async function post(path: string, body: unknown): Promise<{ status: number; json
   return { status: res.status, json: await res.json().catch(() => null) };
 }
 
+async function waitForEvent(
+  rxId: string,
+  agent: string,
+): Promise<{ id: string; data: Record<string, unknown> } | null> {
+  for (let i = 0; i < 70; i++) {
+    const { data } = await db
+      .from("agent_events")
+      .select("id, data")
+      .eq("rx_id", rxId)
+      .eq("agent", agent)
+      .eq("status", "needs_approval")
+      .order("created_at", { ascending: false })
+      .limit(1);
+    if (data && data.length > 0) {
+      return { id: (data[0] as { id: string }).id, data: (data[0] as { data: Record<string, unknown> }).data ?? {} };
+    }
+    await sleep(1000);
+  }
+  return null;
+}
+
 async function main(): Promise<void> {
   // 1. intake
   const intake = await post("/api/intake", { patientId: MARIA_ID, transcript: DEMO_PHRASE });
   const rxId = (intake.json as { rxId?: string } | null)?.rxId;
   console.log(`1) POST /api/intake -> ${intake.status} rxId=${rxId}`);
-  if (!rxId) {
-    console.error("No rxId returned.");
+  if (!rxId) process.exit(1);
+
+  // 2. approve enroll
+  const routerEvent = await waitForEvent(rxId, "router");
+  if (!routerEvent) {
+    console.error("router needs_approval never appeared");
     process.exit(1);
   }
+  const a1 = await post("/api/approve", { eventId: routerEvent.id, decision: "approve", actor: "doctor", via: "voice" });
+  console.log(`2) approve enroll (${routerEvent.data.program}) -> ${a1.status} ${JSON.stringify(a1.json)}`);
 
-  // 2. wait for the router needs_approval event on this rx
-  let eventId: string | undefined;
-  for (let i = 0; i < 25; i++) {
-    const { data } = await db
-      .from("agent_events")
-      .select("id")
-      .eq("rx_id", rxId)
-      .eq("agent", "router")
-      .eq("status", "needs_approval")
-      .order("created_at", { ascending: false })
-      .limit(1);
-    if (data && data.length > 0) {
-      eventId = (data[0] as { id: string }).id;
-      break;
-    }
-    await sleep(1000);
-  }
-  console.log(`2) router needs_approval eventId=${eventId ?? "(not found)"}`);
-  if (!eventId) {
+  // 3. approve submit_pa (paDrafter runs in after(); wait for its needs_approval)
+  const paEvent = await waitForEvent(rxId, "paDrafter");
+  if (!paEvent) {
+    console.error("paDrafter needs_approval never appeared");
     process.exit(1);
   }
-
-  // 3. approve
-  const a1 = await post("/api/approve", { eventId, decision: "approve", actor: "doctor", via: "voice" });
-  console.log(`3) POST /api/approve -> ${a1.status} ${JSON.stringify(a1.json)}`);
-  await sleep(2500);
-
-  const { data: before } = await db.from("agent_events").select("id").eq("rx_id", rxId);
-  const countBefore = before?.length ?? 0;
-
-  // 4. approve again — must be an idempotent no-op
-  const a2 = await post("/api/approve", { eventId, decision: "approve", actor: "doctor", via: "voice" });
-  console.log(`4) POST /api/approve again -> ${a2.status} ${JSON.stringify(a2.json)}`);
-  await sleep(1000);
-  const { data: after } = await db.from("agent_events").select("id").eq("rx_id", rxId);
-  const countAfter = after?.length ?? 0;
   console.log(
-    `   event count ${countBefore} -> ${countAfter} (${countBefore === countAfter ? "no duplicates" : "DUPLICATED"})`
+    `3) paDrafter ready -> source=${paEvent.data.source} draftMs=${paEvent.data.draftMs} paRequestId=${paEvent.data.paRequestId}`
   );
+  const a2 = await post("/api/approve", { eventId: paEvent.id, decision: "approve", actor: "doctor", via: "voice" });
+  console.log(`4) approve submit_pa -> ${a2.status} ${JSON.stringify(a2.json)}`);
+  await sleep(1500);
 
-  // 5. results
+  // 4. fetch the PA letter
+  const paRes = await fetch(`${BASE}/api/pa/${rxId}`);
+  const pa = (await paRes.json()) as { status: string; letterMd: string; citations: { n: number; section: string; quote: string; url: string }[] };
+  console.log(`\n===== PA (${paRes.status}) status=${pa.status} =====`);
+  console.log(pa.letterMd);
+  console.log(`\n----- citations (${pa.citations.length}) -----`);
+  for (const c of pa.citations) {
+    console.log(`  [${c.n}] ${c.section}: "${c.quote.slice(0, 60)}${c.quote.length > 60 ? "…" : ""}"`);
+    console.log(`       ${c.url}`);
+  }
+
+  // 5. final events
   const { data: events } = await db
     .from("agent_events")
     .select("agent,status,title,simulated")
@@ -105,18 +117,12 @@ async function main(): Promise<void> {
     );
   }
 
-  const { data: enrollment } = await db
-    .from("enrollments")
-    .select("program,status,start_day,end_day")
-    .eq("rx_id", rxId);
-  console.log(`\nenrollment: ${JSON.stringify(enrollment)}`);
-
   const { data: rx } = await db
     .from("prescriptions")
-    .select("status,program,expected_delivery_day,drug,dose,frequency,indication")
+    .select("status,program,expected_delivery_day")
     .eq("id", rxId)
     .maybeSingle();
-  console.log(`prescription: ${JSON.stringify(rx)}`);
+  console.log(`\nprescription: ${JSON.stringify(rx)}`);
 }
 
 main().catch((err) => {

@@ -13,7 +13,6 @@ import {
   CheckoutResSchema,
   DemoResSchema,
   IntakeResSchema,
-  PaResSchema,
   PharmaMetricsResSchema,
 } from "../lib/api/contracts";
 import { MARIA_ID, DEMO_PHRASE } from "../lib/demo/constants";
@@ -116,8 +115,14 @@ async function main(): Promise<void> {
   );
   const rxId = intake?.rxId ?? uuid();
 
-  // 2. pa/[rxId]
-  await check("GET  /api/pa/[rxId]", () => req("GET", `/api/pa/${rxId}`), PaResSchema);
+  // 2. pa/[rxId] — a freshly-intake'd rx has no PA yet, so 404 with the error shape.
+  //    The real PA flow is exercised by the live chain.
+  await checkStatus(
+    "GET  /api/pa/[rxId] (404 no PA yet)",
+    () => req("GET", `/api/pa/${rxId}`),
+    404,
+    ApiErrorSchema
+  );
 
   // 3. approve — with a random (missing) eventId, the route must 404 with the
   //    shared error shape. The real approve flow is exercised by the live chain.

@@ -1,4 +1,4 @@
-// Approve route — Phase 3 (replaces the A1.5 stub).
+// Approve route — Phase 4 (extends A3).
 //
 // POST /api/approve  { eventId, decision, actor, via } -> { ok: true }
 //
@@ -7,7 +7,9 @@
 //   - already approved -> { ok: true } (idempotent, no re-work)
 //   - not needs_approval -> 409
 //   - approve + data.action "enroll": medvantx.enroll, set prescription
-//     program/status and expected_delivery_day, then emit "Ready to draft PA"
+//     program/status/expected_delivery_day, then run paDrafter in after()
+//   - approve + data.action "submit_pa": payer.submitPA, mark pa submitted,
+//     keep status bridge if a bridge/quick_start supply is active, else pa_pending
 //   - reject: emit "Doctor declined — no action taken"
 
 import type { NextRequest } from "next/server";
@@ -112,7 +114,7 @@ export async function POST(request: NextRequest): Promise<Response> {
       const { statusForProgram } = await import("@/lib/agents/router");
       const { now } = await import("@/lib/clock");
 
-      const { enrollmentId, supplyDays, shipsInDays } = await medvantx.enroll(ctx, rxId, program);
+      const { shipsInDays } = await medvantx.enroll(ctx, rxId, program);
       const day = (await now()).day;
 
       const { error: updErr } = await db
@@ -125,15 +127,13 @@ export async function POST(request: NextRequest): Promise<Response> {
         .eq("id", rxId);
       if (updErr) throw new Error(updErr.message);
 
-      // Continue the chain (A4 replaces this with the real PA drafter).
-      const paStep = await ctx.step("paDrafter", "Preparing the prior authorization…", {
-        simulated: true,
-      });
-      await paStep.done(
-        "Ready to draft PA",
-        `Enrolled · ${supplyDays}-day supply · ships in ${shipsInDays} days.`,
-        { rxId, enrollmentId, program }
-      );
+      // Draft the PA now, awaited (bounded by maxDuration=60). We do NOT use
+      // next/server after() here: in `next dev` the after() context is torn down
+      // after the response, so the ~20s reasoning call hangs forever at
+      // "running". Awaiting is reliable in dev, `next start`, and Vercel; the
+      // paDrafter step still streams running -> needs_approval via realtime.
+      const { paDrafter } = await import("@/lib/agents/paDrafter");
+      await paDrafter(ctx);
 
       return jsonResponse({ ok: true as const });
     } catch (err) {
@@ -145,6 +145,48 @@ export async function POST(request: NextRequest): Promise<Response> {
         detail: err instanceof Error ? err.message : String(err),
       });
       return errorResponse("internal", "Enrollment failed");
+    }
+  }
+
+  if (action === "submit_pa") {
+    const paRequestId = typeof data.paRequestId === "string" ? data.paRequestId : "";
+    if (!paRequestId) {
+      return errorResponse("conflict", "Event has no PA request to submit");
+    }
+
+    const s = await ctx.step("payer", "Submitting PA to insurer…", { simulated: true });
+    try {
+      const { submitPA } = await import("@/lib/mocks/payer");
+      await submitPA(paRequestId);
+
+      // Keep status `bridge` while an active bridge/quick_start supply exists;
+      // otherwise the prescription is now purely waiting on the PA.
+      let bridgeActive = false;
+      if (rxId) {
+        const { data: enr } = await db
+          .from("enrollments")
+          .select("id")
+          .eq("rx_id", rxId)
+          .in("program", ["bridge", "quick_start"])
+          .eq("status", "active")
+          .limit(1);
+        bridgeActive = Boolean(enr && enr.length > 0);
+        if (!bridgeActive) {
+          await db.from("prescriptions").update({ status: "pa_pending" }).eq("id", rxId);
+        }
+      }
+
+      await s.done(
+        "PA submitted to insurer",
+        bridgeActive
+          ? "Bridge supply active; awaiting the payer's decision."
+          : "Awaiting the payer's decision."
+      );
+      return jsonResponse({ ok: true as const });
+    } catch (err) {
+      console.error("[approve] submit_pa dispatch failed:", err);
+      await s.blocked("PA submission failed", err instanceof Error ? err.message : String(err));
+      return errorResponse("internal", "PA submission failed");
     }
   }
 
