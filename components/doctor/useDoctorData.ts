@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { FIXTURE_ALERTS, FIXTURE_PATIENT_ROWS, type AlertRow, type PatientRow } from "@/components/fixtures";
 import { PROGRAM } from "@/components/labels";
+import { mergeNewest, upsertNewest as upsert, type Row } from "@/components/rows";
 import { labelFor } from "@/components/StatusPill";
 import { supabase } from "@/lib/db/client";
 import type { Alert, Enrollment, Order, OrderStatus, Patient, Prescription } from "@/lib/db/types";
@@ -11,16 +12,6 @@ import type { Alert, Enrollment, Order, OrderStatus, Patient, Prescription } fro
 import type { LiveState } from "../useLiveEvents";
 
 type PatientLite = Pick<Patient, "id" | "name" | "language" | "rural">;
-type Row = { id: string; created_at: string };
-
-/** Insert or replace by id, newest first. */
-function upsert<T extends Row>(list: T[], row: T): T[] {
-  const i = list.findIndex((r) => r.id === row.id);
-  if (i === -1) return [row, ...list].sort((a, b) => b.created_at.localeCompare(a.created_at));
-  const next = list.slice();
-  next[i] = row;
-  return next;
-}
 
 const ORDER_NOTE: Record<OrderStatus, string> = {
   created: "Order created",
@@ -99,7 +90,7 @@ export function useDoctorData() {
         if (err) throw new Error(err.message);
         // Merge with anything Realtime already delivered (those rows are newer).
         setT((prev) => {
-          const merge = <T extends Row>(loaded: T[], seen: T[]) => seen.reduce(upsert, loaded);
+          const merge = mergeNewest;
           return {
             patients: (patients.data ?? []) as PatientLite[],
             prescriptions: merge((prescriptions.data ?? []) as Prescription[], prev.prescriptions),

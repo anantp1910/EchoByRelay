@@ -10,8 +10,10 @@ import type {
   AgentEvent,
   Alert,
   CareCircleMember,
+  Enrollment,
   Message,
   Patient,
+  Prescription,
   PrescriptionStatus,
 } from "@/lib/db/types";
 import type { PaRes } from "@/lib/api/contracts";
@@ -53,6 +55,7 @@ export const FIXTURE_ANA: CareCircleMember = {
   name: "Ana González",
   relation: "daughter",
   can_pay: true,
+  lang: "en",
   is_seed: true,
   created_at: T0,
 };
@@ -236,11 +239,13 @@ export const FIXTURE_ALERTS: AlertRow[] = [
   },
 ];
 
+// One row per recipient, in that recipient's language (as patientComms writes them).
 export const FIXTURE_MESSAGES: Message[] = [
   {
     id: fx(301),
     patient_id: MARIA_ID,
-    sender: "Relay",
+    recipient_member_id: null,
+    sender: "relay",
     lang: "es",
     body: `Su doctora le recetó ${DEMO_DRUG.name}. Le enviamos un suministro gratis de 30 días mientras su seguro lo revisa.`,
     is_seed: false,
@@ -249,13 +254,40 @@ export const FIXTURE_MESSAGES: Message[] = [
   {
     id: fx(302),
     patient_id: MARIA_ID,
-    sender: "Relay",
+    recipient_member_id: ANA_ID,
+    sender: "relay",
     lang: "en",
-    body: `Ana joined Maria's care circle. She'll get updates in English.`,
+    body: `Your mother Maria is starting a free 30-day ${DEMO_DRUG.name} supply from Medvantx Bridge while her insurance reviews the prescription.`,
     is_seed: false,
-    created_at: at(80),
+    created_at: at(51),
   },
 ];
+
+// Maria's day-0 state for the patient portal: on the free bridge, shipping.
+export const FIXTURE_MARIA_RX: Prescription = {
+  id: FIXTURE_MARIA_RX_ID,
+  patient_id: MARIA_ID,
+  drug: DEMO_DRUG.name,
+  dose: DEMO_DRUG.dose,
+  frequency: DEMO_DRUG.frequency,
+  indication: DEMO_DRUG.indication,
+  status: "bridge",
+  program: "bridge",
+  expected_delivery_day: 2,
+  is_seed: false,
+  created_at: at(33),
+};
+
+export const FIXTURE_MARIA_ENROLLMENT: Enrollment = {
+  id: fx(501),
+  rx_id: FIXTURE_MARIA_RX_ID,
+  program: "bridge",
+  start_day: 0,
+  end_day: 30,
+  status: "active",
+  is_seed: false,
+  created_at: at(45),
+};
 
 // ---------------------------------------------------------------------------
 // Pharma placeholders (Phase 8 replaces these with /api/pharma/metrics)

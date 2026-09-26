@@ -1,190 +1,441 @@
 "use client";
 
-import { motion } from "framer-motion";
-import { Check, CreditCard, HeartHandshake, Pill, SearchX } from "lucide-react";
+import { AnimatePresence, motion } from "framer-motion";
+import { Check, CreditCard, HeartHandshake, Inbox, Pill, RotateCcw, SearchX, UserPlus } from "lucide-react";
 import Link from "next/link";
 import { useState } from "react";
 
 import { FixtureBadge, RelayMark } from "@/components/AppHeader";
-import { FIXTURE_ANA, FIXTURE_MARIA, FIXTURE_MESSAGES } from "@/components/fixtures";
+import { PROGRAM, isRouterProgram } from "@/components/labels";
+import { LocalTime } from "@/components/LocalTime";
 import { StatusPill } from "@/components/StatusPill";
 import { Button } from "@/components/ui/button";
-import type { Language, PrescriptionStatus } from "@/lib/db/types";
-import { DEMO_DRUG, MARIA_ID } from "@/lib/demo/constants";
+import { Skeleton } from "@/components/ui/skeleton";
+import type { RouterProgramLabel } from "@/lib/api/contracts";
+import type {
+  CareCircleMember,
+  Enrollment,
+  Language,
+  Message,
+  Order,
+  PaymentMandate,
+  Prescription,
+  PrescriptionStatus,
+} from "@/lib/db/types";
+import { ANA_ID, DEMO_DRUG } from "@/lib/demo/constants";
 import { cn } from "@/lib/utils";
 
-// UI copy only. Clinical wording (what/why/how) comes from the FDA label via
-// patientComms in Phase 5; until then we show just the Rx fields.
+import { CheckoutSheet } from "./CheckoutSheet";
+import { usePatientData } from "./usePatientData";
+
+// UI copy only. Message bodies come from patientComms in the recipient's
+// language and are never translated here.
 const T = {
   en: {
     hello: (n: string) => `Hi, ${n}`,
+    helloFor: (n: string, p: string) => `Hi, ${n}. Here's ${p}'s medicine.`,
     sub: "Here's where your medicine is.",
     medicine: "Your medicine",
+    medicineFor: (p: string) => `${p}'s medicine`,
     what: "What it is",
     why: "What it's for",
     how: "How to take it",
-    labelSoon: "A plain-language explanation from the FDA label will appear here.",
+    path: "How it's covered",
+    noRx: "No prescription yet. Updates appear here as soon as the doctor sends one.",
     progress: "Progress",
     steps: ["Prescribed", "Path approved", "Shipping", "Delivered", "Refill"],
+    refillOn: "Automatic refill is on",
     now: "Now",
+    day: (d: number) => `Day ${d}`,
     circle: "Care circle",
     viewingAs: "Viewing as",
+    joined: (name: string, rel: string | null) => `${name}${rel ? ` (${rel})` : ""} joined the care circle`,
+    noMessages: "No updates yet.",
     pay: "Payment",
-    nothingToPay: "Nothing to pay. The bridge supply is free.",
+    nothingToPay: "Nothing to pay. This program is free.",
+    toPay: (amount: string) => `${amount} for this month's supply from Medvantx.`,
+    paidShipped: "Paid. The medicine is on its way.",
     approvePay: "Approve payment",
-    status: { bridge: "Free bridge supply" } as Partial<Record<PrescriptionStatus, string>>,
     notFound: "We couldn't find this patient.",
     notFoundHint: "Check the link from your care team.",
+    loadError: "We couldn't load your updates.",
+    retry: "Try again",
     home: "Go to Relay home",
+    program: {
+      bridge: "Free bridge supply",
+      quick_start: "Free Quick Start supply",
+      pap: "Patient Assistance Program (free)",
+      cash_pay: "Medvantx Cash Pay",
+      retail_copay_card: "Pharmacy with a copay card",
+      retail: "Your pharmacy",
+      escalate: "Your doctor is reviewing options",
+    } satisfies Record<RouterProgramLabel, string>,
+    status: {
+      new: "New",
+      routing: "Finding the best path",
+      bridge: "Free bridge supply",
+      pa_pending: "Waiting on insurance",
+      on_therapy: "On treatment",
+      at_risk: "Needs attention",
+      abandoned: "Stopped",
+    } satisfies Record<PrescriptionStatus, string>,
   },
   es: {
     hello: (n: string) => `Hola, ${n}`,
+    helloFor: (n: string, p: string) => `Hola, ${n}. Esta es la medicina de ${p}.`,
     sub: "Aquí puede ver dónde está su medicina.",
     medicine: "Su medicina",
+    medicineFor: (p: string) => `La medicina de ${p}`,
     what: "Qué es",
     why: "Para qué es",
     how: "Cómo tomarla",
-    labelSoon: "Aquí aparecerá una explicación sencilla basada en la etiqueta de la FDA.",
+    path: "Cómo se cubre",
+    noRx: "Aún no hay receta. Las novedades aparecerán aquí en cuanto su doctora la envíe.",
     progress: "Progreso",
     steps: ["Recetada", "Plan aprobado", "En camino", "Entregada", "Resurtido"],
+    refillOn: "El resurtido automático está activo",
     now: "Ahora",
+    day: (d: number) => `Día ${d}`,
     circle: "Círculo de cuidado",
     viewingAs: "Viendo como",
+    joined: (name: string, rel: string | null) => `${name}${rel ? ` (${rel})` : ""} se unió al círculo de cuidado`,
+    noMessages: "Aún no hay novedades.",
     pay: "Pago",
-    nothingToPay: "No hay nada que pagar. El suministro puente es gratis.",
+    nothingToPay: "No hay nada que pagar. Este programa es gratis.",
+    toPay: (amount: string) => `${amount} por el suministro de este mes de Medvantx.`,
+    paidShipped: "Pagado. La medicina va en camino.",
     approvePay: "Aprobar pago",
-    status: { bridge: "Suministro puente gratis" } as Partial<Record<PrescriptionStatus, string>>,
     notFound: "No encontramos a este paciente.",
     notFoundHint: "Revise el enlace de su equipo médico.",
+    loadError: "No pudimos cargar sus novedades.",
+    retry: "Intentar de nuevo",
     home: "Ir a Relay",
+    program: {
+      bridge: "Suministro puente gratis",
+      quick_start: "Suministro de inicio rápido gratis",
+      pap: "Programa de asistencia al paciente (gratis)",
+      cash_pay: "Pago directo Medvantx",
+      retail_copay_card: "Farmacia con tarjeta de copago",
+      retail: "Su farmacia",
+      escalate: "Su doctora está revisando opciones",
+    } satisfies Record<RouterProgramLabel, string>,
+    status: {
+      new: "Nueva",
+      routing: "Buscando el mejor camino",
+      bridge: "Suministro puente gratis",
+      pa_pending: "Esperando al seguro",
+      on_therapy: "En tratamiento",
+      at_risk: "Necesita atención",
+      abandoned: "Suspendida",
+    } satisfies Record<PrescriptionStatus, string>,
   },
 } satisfies Record<Language, unknown>;
+
+type Copy = (typeof T)[Language];
+
+const RELATION: Record<Language, Record<string, string>> = {
+  en: {},
+  es: { daughter: "hija", son: "hijo", wife: "esposa", husband: "esposo", mother: "madre", father: "padre", sister: "hermana", brother: "hermano" },
+};
 
 // Rx-field translations for the demo drug (not clinical claims).
 const RX_ES: Record<string, string> = {
   "once daily": "una vez al día",
   "type 2 diabetes with heart failure": "diabetes tipo 2 con insuficiencia cardíaca",
 };
-const rx = (lang: Language, s: string) => (lang === "es" ? (RX_ES[s] ?? s) : s);
+const rxText = (lang: Language, s: string) => (lang === "es" ? (RX_ES[s] ?? s) : s);
 
-type Viewer = "patient" | "ana";
+const FREE_PROGRAMS = new Set(["bridge", "quick_start", "pap"]);
+
+/**
+ * Index of the current step (0-4), or 5 when all are done. Steps complete in
+ * order: Prescribed → Path approved → Shipping → Delivered → Refill.
+ */
+function progressStep(
+  rx: Prescription | null,
+  enrollment: Enrollment | null,
+  order: Order | null,
+  mandate: PaymentMandate | null,
+  day: number | null
+): number {
+  const free = rx?.program ? FREE_PROGRAMS.has(rx.program) : false;
+  const done = [
+    rx !== null,
+    Boolean(rx?.program) || enrollment !== null,
+    order ? ["paid", "shipped", "delivered"].includes(order.status) : free && enrollment?.status === "active",
+    order
+      ? order.status === "delivered"
+      : free && day !== null && rx?.expected_delivery_day != null && day >= rx.expected_delivery_day,
+    mandate?.recurring === true,
+  ];
+  const i = done.findIndex((d) => !d);
+  return i === -1 ? done.length : i;
+}
+
+type Viewer = "patient" | "member";
 
 export function PatientPortal({ patientId }: { patientId: string }) {
-  const patient = patientId === MARIA_ID ? FIXTURE_MARIA : null;
-  const [lang, setLang] = useState<Language>(patient?.language ?? "en");
-  const [viewer, setViewer] = useState<Viewer>("patient");
-  const t = T[lang];
+  const data = usePatientData(patientId);
+  const { patient, circle, rx, order } = data;
 
-  // Demo state until Realtime is wired: Maria is on the free bridge, shipping.
-  const status: PrescriptionStatus = "bridge";
-  const currentStep = 2;
+  // Viewer: the patient, or a care-circle member (Ana by default).
+  const [viewer, setViewer] = useState<Viewer>("patient");
+  const member = circle.find((m) => m.id === ANA_ID) ?? circle[0] ?? null;
+  const viewerLang: Language = viewer === "member" && member ? member.lang : (patient?.language ?? "es");
+  // Language follows the viewer until someone taps the toggle.
+  const [langChoice, setLangChoice] = useState<{ viewer: Viewer; lang: Language } | null>(null);
+  const lang = langChoice?.viewer === viewer ? langChoice.lang : viewerLang;
+  const t = T[lang];
+  const [payOpen, setPayOpen] = useState(false);
+
+  const first = (name: string) => name.split(" ")[0];
+  const program = rx?.program ?? null;
+  const step = progressStep(rx, data.enrollment, order, data.mandate, data.day);
+  const payable = order !== null && order.status === "created" && data.orderProgram === "cash_pay";
+  const money = (n: number) =>
+    new Intl.NumberFormat(lang === "es" ? "es-US" : "en-US", { style: "currency", currency: "USD" }).format(n);
+
+  const feed = data.messages.filter((m) =>
+    viewer === "member" ? m.recipient_member_id === member?.id : m.recipient_member_id === null
+  );
 
   return (
-    <div className="min-h-full flex-1 bg-background text-[1.0625rem] sm:text-lg">
-      <header className="sticky top-0 z-20 border-b border-line bg-card/95 backdrop-blur">
+    <div className="min-h-full flex-1 bg-background text-lg">
+      <header className="sticky top-[env(safe-area-inset-top,0px)] z-20 border-b border-line bg-card/95 backdrop-blur">
         <div className="mx-auto flex h-16 max-w-xl items-center gap-2 px-4">
           <RelayMark />
           <FixtureBadge />
-          <LangToggle lang={lang} onChange={setLang} />
+          <LangToggle lang={lang} onChange={(l) => setLangChoice({ viewer, lang: l })} />
         </div>
       </header>
 
-      {!patient ? (
+      {data.state === "loading" ? (
+        <main className="mx-auto flex max-w-xl flex-col gap-5 px-4 py-6" aria-busy="true" aria-label="Loading">
+          <Skeleton className="h-10 w-2/3" />
+          <Skeleton className="h-48 w-full rounded-2xl" />
+          <Skeleton className="h-64 w-full rounded-2xl" />
+        </main>
+      ) : data.state === "error" ? (
+        <main className="mx-auto flex max-w-xl flex-col items-center gap-3 px-4 py-20 text-center" role="alert">
+          <h1 className="text-2xl font-bold">{t.loadError}</h1>
+          {data.error && <p className="text-muted-foreground">{data.error}</p>}
+          <Button size="lg" variant="outline" className="h-12 text-base" onClick={data.retry}>
+            <RotateCcw aria-hidden /> {t.retry}
+          </Button>
+        </main>
+      ) : data.state === "not_found" || !patient ? (
         <main className="mx-auto flex max-w-xl flex-col items-center gap-3 px-4 py-20 text-center">
           <SearchX aria-hidden className="size-10 text-muted-foreground" />
           <h1 className="text-2xl font-bold">{t.notFound}</h1>
           <p className="text-muted-foreground">{t.notFoundHint}</p>
-          <Link href="/" className="mt-2 font-medium text-primary underline underline-offset-4">
+          <Link href="/" className="mt-2 rounded font-medium text-primary underline underline-offset-4">
             {t.home}
           </Link>
         </main>
       ) : (
         <main lang={lang} className="mx-auto flex max-w-xl flex-col gap-5 px-4 py-6 pb-16">
+          {member && (
+            <ViewerSwitch
+              label={t.viewingAs}
+              viewer={viewer}
+              onChange={setViewer}
+              names={{ patient: first(patient.name), member: first(member.name) }}
+            />
+          )}
+
           <section>
-            <h1 className="text-3xl font-bold sm:text-4xl">{t.hello(patient.name.split(" ")[0])}</h1>
-            <p className="mt-1 text-muted-foreground">{t.sub}</p>
-            <StatusPill status={status} label={t.status[status]} size="lg" className="mt-3" />
+            <h1 className="text-3xl font-bold sm:text-4xl">
+              {viewer === "member" && member
+                ? t.helloFor(first(member.name), first(patient.name))
+                : t.hello(first(patient.name))}
+            </h1>
+            {viewer === "patient" && <p className="mt-1 text-muted-foreground">{t.sub}</p>}
+            {rx && (
+              <StatusPill status={rx.status} label={t.status[rx.status]} size="lg" className="mt-3" />
+            )}
           </section>
 
           <Card>
-            <CardTitle icon={Pill}>{t.medicine}</CardTitle>
-            <dl className="mt-4 grid gap-4">
-              <Row term={t.what}>
-                <span className="font-bold">{DEMO_DRUG.name}</span>{" "}
-                <span className="text-muted-foreground">({DEMO_DRUG.genericName})</span>
-              </Row>
-              <Row term={t.why}>{rx(lang, DEMO_DRUG.indication)}</Row>
-              <Row term={t.how}>
-                <span className="font-mono">{DEMO_DRUG.dose}</span> · {rx(lang, DEMO_DRUG.frequency)}
-              </Row>
-            </dl>
-            <p className="mt-4 rounded-lg bg-muted px-3 py-2 text-sm text-muted-foreground">{t.labelSoon}</p>
+            <CardTitle icon={Pill}>{viewer === "member" ? t.medicineFor(first(patient.name)) : t.medicine}</CardTitle>
+            {rx ? (
+              <dl className="mt-4 grid gap-4">
+                <Row term={t.what}>
+                  <span className="font-bold">{DEMO_DRUG.name}</span>{" "}
+                  <span className="text-muted-foreground">({DEMO_DRUG.genericName})</span>
+                </Row>
+                <Row term={t.why}>{rxText(lang, DEMO_DRUG.indication)}</Row>
+                <Row term={t.how}>
+                  <span className="font-mono">{DEMO_DRUG.dose}</span> · {rxText(lang, DEMO_DRUG.frequency)}
+                </Row>
+                {program && isRouterProgram(program) && (
+                  <Row term={t.path}>
+                    <span className="font-medium" data-testid="rx-program">
+                      {t.program[program]}
+                    </span>
+                    <span className="block text-base text-muted-foreground">{PROGRAM[program].label}</span>
+                  </Row>
+                )}
+              </dl>
+            ) : (
+              <p className="mt-3 text-muted-foreground">{t.noRx}</p>
+            )}
           </Card>
 
           <Card>
-            <CardTitle>{t.progress}</CardTitle>
-            <ProgressTracker steps={t.steps} current={currentStep} nowLabel={t.now} />
+            <div className="flex items-baseline justify-between gap-2">
+              <CardTitle>{t.progress}</CardTitle>
+              {data.day !== null && <span className="font-mono text-base text-muted-foreground">{t.day(data.day)}</span>}
+            </div>
+            <ProgressTracker steps={t.steps} current={step} nowLabel={t.now} />
+            {data.mandate?.recurring && <p className="mt-3 text-base text-ok-strong">{t.refillOn}</p>}
           </Card>
+
+          {viewer === "member" && member?.can_pay && (
+            <Card>
+              <CardTitle icon={CreditCard}>{t.pay}</CardTitle>
+              {payable && order ? (
+                <>
+                  <p className="mt-2">{t.toPay(money(Number(order.amount_usd ?? 0)))}</p>
+                  <Button
+                    size="lg"
+                    className="mt-4 h-14 w-full text-lg"
+                    onClick={() => setPayOpen(true)}
+                    data-testid="approve-payment"
+                  >
+                    {t.approvePay}
+                  </Button>
+                </>
+              ) : order && data.orderProgram === "cash_pay" && order.status !== "created" ? (
+                <p className="mt-2 flex items-center gap-2 font-medium text-ok-strong">
+                  <Check aria-hidden className="size-5" /> {t.paidShipped}
+                </p>
+              ) : (
+                <p className="mt-2 text-muted-foreground">{t.nothingToPay}</p>
+              )}
+            </Card>
+          )}
 
           <Card>
             <CardTitle icon={HeartHandshake}>{t.circle}</CardTitle>
-            <div className="mt-3 flex flex-wrap items-center gap-2 text-sm">
-              <span className="text-muted-foreground">{t.viewingAs}</span>
-              <div role="group" aria-label={t.viewingAs} className="inline-flex rounded-lg border border-line p-0.5">
-                {(
-                  [
-                    ["patient", patient.name.split(" ")[0]],
-                    ["ana", FIXTURE_ANA.name.split(" ")[0]],
-                  ] as const
-                ).map(([v, name]) => (
-                  <button
-                    key={v}
-                    type="button"
-                    aria-pressed={viewer === v}
-                    onClick={() => setViewer(v)}
-                    className={cn(
-                      "rounded-md px-3 py-1 font-medium",
-                      viewer === v ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-muted"
-                    )}
-                  >
-                    {name}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            <ul className="mt-4 flex flex-col gap-3">
-              {FIXTURE_MESSAGES.map((m) => (
-                <motion.li
-                  key={m.id}
-                  initial={{ opacity: 0, y: 6 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  className="rounded-2xl rounded-tl-sm bg-accent px-4 py-3"
-                >
-                  <p lang={m.lang}>{m.body}</p>
-                  <p className="mt-1 text-xs text-muted-foreground">
-                    {m.sender} · <span className="font-mono uppercase">{m.lang}</span>
-                  </p>
-                </motion.li>
-              ))}
-            </ul>
-
-            {viewer === "ana" && FIXTURE_ANA.can_pay && (
-              <div className="mt-4 rounded-xl border border-line p-4">
-                <p className="flex items-center gap-2 font-bold">
-                  <CreditCard aria-hidden className="size-5 text-primary" /> {t.pay}
-                </p>
-                <p className="mt-1 text-muted-foreground">{t.nothingToPay}</p>
-                {/* Enabled only for cash_pay / remaining copay (Phase 6). Free programs never touch Visa. */}
-                <Button size="lg" className="mt-3 h-12 w-full text-base" disabled>
-                  {t.approvePay}
-                </Button>
-              </div>
-            )}
+            <Feed messages={feed} circle={circle} lang={lang} t={t} />
           </Card>
         </main>
       )}
+
+      {payable && order && member && (
+        <CheckoutSheet
+          key={order.id}
+          open={payOpen}
+          onOpenChange={setPayOpen}
+          orderId={order.id}
+          amountUsd={Number(order.amount_usd ?? 0)}
+          payerMemberId={member.id}
+          lang={lang}
+        />
+      )}
     </div>
+  );
+}
+
+function ViewerSwitch({
+  label,
+  viewer,
+  onChange,
+  names,
+}: {
+  label: string;
+  viewer: Viewer;
+  onChange: (v: Viewer) => void;
+  names: Record<Viewer, string>;
+}) {
+  return (
+    <div className="flex flex-wrap items-center gap-2 text-base">
+      <span className="text-muted-foreground">{label}</span>
+      <div role="group" aria-label={label} className="inline-flex rounded-xl border border-line bg-card p-1">
+        {(["patient", "member"] as const).map((v) => (
+          <button
+            key={v}
+            type="button"
+            aria-pressed={viewer === v}
+            onClick={() => onChange(v)}
+            data-testid={`viewer-${v}`}
+            className={cn(
+              "h-10 min-w-20 rounded-lg px-4 font-medium",
+              viewer === v ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-muted"
+            )}
+          >
+            {names[v]}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+type FeedItem =
+  | { kind: "message"; id: string; at: string; message: Message }
+  | { kind: "joined"; id: string; at: string; member: CareCircleMember };
+
+function Feed({
+  messages,
+  circle,
+  lang,
+  t,
+}: {
+  messages: Message[];
+  circle: CareCircleMember[];
+  lang: Language;
+  t: Copy;
+}) {
+  const items: FeedItem[] = [
+    ...circle.map((m): FeedItem => ({ kind: "joined", id: `joined-${m.id}`, at: m.created_at, member: m })),
+    ...messages.map((m): FeedItem => ({ kind: "message", id: m.id, at: m.created_at, message: m })),
+  ].sort((a, b) => a.at.localeCompare(b.at));
+
+  if (items.length === 0) {
+    return (
+      <div className="mt-4 flex flex-col items-center gap-2 py-6 text-center text-muted-foreground">
+        <Inbox aria-hidden className="size-6" />
+        <p>{t.noMessages}</p>
+      </div>
+    );
+  }
+
+  return (
+    <ul className="mt-4 flex flex-col gap-3" aria-live="polite" data-testid="care-feed">
+      <AnimatePresence initial={false}>
+        {items.map((item) =>
+          item.kind === "joined" ? (
+            <motion.li
+              key={item.id}
+              layout="position"
+              initial={{ opacity: 0, y: 6 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="flex items-center gap-2 px-1 text-base text-muted-foreground"
+            >
+              <UserPlus aria-hidden className="size-4 shrink-0" />
+              {t.joined(item.member.name.split(" ")[0], item.member.relation ? (RELATION[lang][item.member.relation] ?? item.member.relation) : null)}
+            </motion.li>
+          ) : (
+            <motion.li
+              key={item.id}
+              layout="position"
+              initial={{ opacity: 0, y: 6 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="rounded-2xl rounded-tl-sm bg-accent px-4 py-3 text-accent-foreground"
+              data-testid="care-message"
+            >
+              <p lang={item.message.lang}>{item.message.body}</p>
+              <p className="mt-1 flex items-center gap-2 text-xs text-muted-foreground">
+                <span>Relay</span>
+                <span className="rounded border border-line px-1 font-mono uppercase">{item.message.lang}</span>
+                <LocalTime iso={item.message.created_at} />
+              </p>
+            </motion.li>
+          )
+        )}
+      </AnimatePresence>
+    </ul>
   );
 }
 
@@ -198,8 +449,9 @@ function LangToggle({ lang, onChange }: { lang: Language; onChange: (l: Language
           lang={l}
           aria-pressed={lang === l}
           onClick={() => onChange(l)}
+          data-testid={`lang-${l}`}
           className={cn(
-            "h-9 min-w-12 rounded-full px-3 text-base font-bold",
+            "h-10 min-w-12 rounded-full px-3 text-base font-bold",
             lang === l ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-muted"
           )}
         >
@@ -234,18 +486,24 @@ function Row({ term, children }: { term: string; children: React.ReactNode }) {
 
 function ProgressTracker({ steps, current, nowLabel }: { steps: string[]; current: number; nowLabel: string }) {
   return (
-    <ol className="mt-4 flex flex-col">
+    <ol className="mt-4 flex flex-col" data-testid="progress" data-current={current}>
       {steps.map((step, i) => {
         const done = i < current;
         const active = i === current;
         return (
           <li key={step} className="relative flex gap-3 pb-5 last:pb-0" aria-current={active ? "step" : undefined}>
             {i < steps.length - 1 && (
-              <span aria-hidden className={cn("absolute top-8 bottom-0 left-4 w-0.5 -translate-x-1/2", done ? "bg-ok" : "bg-line")} />
+              <span
+                aria-hidden
+                className={cn(
+                  "absolute top-8 bottom-0 left-4 w-0.5 -translate-x-1/2 transition-colors duration-300",
+                  done ? "bg-ok" : "bg-line"
+                )}
+              />
             )}
             <span
               className={cn(
-                "relative z-10 grid size-8 shrink-0 place-items-center rounded-full border-2 font-mono text-sm font-bold",
+                "relative z-10 grid size-8 shrink-0 place-items-center rounded-full border-2 font-mono text-sm font-bold transition-colors duration-300",
                 done && "border-ok bg-ok text-white dark:text-[#062326]",
                 active && "border-primary bg-card text-primary",
                 !done && !active && "border-line bg-card text-muted-foreground"

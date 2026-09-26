@@ -28,7 +28,7 @@ import { cn } from "@/lib/utils";
 
 import { isRouterProgram, PROGRAM } from "./labels";
 import { StatusPill, TONE_CLASSES, toneFor, type Tone } from "./StatusPill";
-import { useMounted } from "./useMounted";
+import { LocalTime } from "./LocalTime";
 
 const AGENT: Record<string, { icon: LucideIcon; label: string }> = {
   trustGate: { icon: ShieldCheck, label: "Trust gate" },
@@ -51,17 +51,6 @@ const NODE: Record<Tone, string> = {
   pending: "bg-pending-soft text-pending-strong ring-1 ring-pending/40",
 };
 
-/** Viewer's local time, rendered after mount so server and client HTML match. */
-function LocalTime({ iso }: { iso: string }) {
-  const mounted = useMounted();
-  return (
-    <time dateTime={iso} className="ml-auto font-mono text-xs text-muted-foreground tabular">
-      {mounted
-        ? new Date(iso).toLocaleTimeString([], { hour: "numeric", minute: "2-digit", second: "2-digit" })
-        : null}
-    </time>
-  );
-}
 
 export type Decision = "approve" | "reject";
 
@@ -269,7 +258,7 @@ function TimelineStep({
               Simulated
             </span>
           )}
-          <LocalTime iso={event.created_at} />
+          <LocalTime iso={event.created_at} className="ml-auto" />
         </div>
 
         <p className={cn("mt-0.5 font-medium text-foreground", dense ? "text-sm" : "text-base")}>{event.title}</p>
