@@ -210,8 +210,20 @@ alter table alerts add constraint alerts_kind_check
 -- A3.1: one row per step (running -> done|blocked|needs_approval). Realtime now
 -- delivers UPDATEs, not just INSERTs. REPLICA IDENTITY FULL makes the full row
 -- available so RLS can be evaluated for anon subscribers on UPDATE/DELETE and
--- the complete new row is delivered in the change payload.
-alter table agent_events replica identity full;
+-- the complete new row is delivered in the change payload. Applied to every
+-- table in the supabase_realtime publication (idempotent — re-running is a no-op).
+do $$
+declare
+  t text;
+begin
+  foreach t in array array[
+    'agent_events', 'prescriptions', 'alerts', 'messages',
+    'orders', 'enrollments', 'pa_requests', 'payments', 'demo_state'
+  ]
+  loop
+    execute format('alter table public.%I replica identity full', t);
+  end loop;
+end $$;
 
 -- ============================================================================
 -- Indexes
