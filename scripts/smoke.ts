@@ -9,11 +9,10 @@
 import type { z } from "zod";
 
 import {
-  ApproveResSchema,
+  ApiErrorSchema,
   CheckoutResSchema,
   DemoResSchema,
   IntakeResSchema,
-  PaResSchema,
   PharmaMetricsResSchema,
 } from "../lib/api/contracts";
 import { MARIA_ID, DEMO_PHRASE } from "../lib/demo/constants";
@@ -77,6 +76,34 @@ async function check<T>(
   }
 }
 
+/** Like check(), but asserts a specific (non-200) status and schema. */
+async function checkStatus<T>(
+  name: string,
+  run: () => Promise<{ status: number; json: unknown }>,
+  expectedStatus: number,
+  schema: z.ZodType<T>
+): Promise<void> {
+  try {
+    const { status, json } = await run();
+    if (status !== expectedStatus) {
+      console.log(`FAIL  ${name}  (expected HTTP ${expectedStatus}, got ${status}: ${JSON.stringify(json)})`);
+      failures++;
+      return;
+    }
+    const parsed = schema.safeParse(json);
+    if (!parsed.success) {
+      console.log(`FAIL  ${name}  (schema: ${parsed.error.message})`);
+      failures++;
+      return;
+    }
+    console.log(`PASS  ${name}`);
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    console.log(`FAIL  ${name}  (${msg})`);
+    failures++;
+  }
+}
+
 async function main(): Promise<void> {
   console.log(`Smoke test against ${BASE}\n`);
 
@@ -88,12 +115,19 @@ async function main(): Promise<void> {
   );
   const rxId = intake?.rxId ?? uuid();
 
-  // 2. pa/[rxId]
-  await check("GET  /api/pa/[rxId]", () => req("GET", `/api/pa/${rxId}`), PaResSchema);
+  // 2. pa/[rxId] — a freshly-intake'd rx has no PA yet, so 404 with the error shape.
+  //    The real PA flow is exercised by the live chain.
+  await checkStatus(
+    "GET  /api/pa/[rxId] (404 no PA yet)",
+    () => req("GET", `/api/pa/${rxId}`),
+    404,
+    ApiErrorSchema
+  );
 
-  // 3. approve
-  await check(
-    "POST /api/approve",
+  // 3. approve — with a random (missing) eventId, the route must 404 with the
+  //    shared error shape. The real approve flow is exercised by the live chain.
+  await checkStatus(
+    "POST /api/approve (404 for missing event)",
     () =>
       req("POST", "/api/approve", {
         eventId: uuid(),
@@ -101,7 +135,8 @@ async function main(): Promise<void> {
         actor: "doctor",
         via: "voice",
       }),
-    ApproveResSchema
+    404,
+    ApiErrorSchema
   );
 
   // 4. checkout

@@ -1,17 +1,34 @@
 import "server-only";
 
 import { db } from "@/lib/db/server";
-import { DEMO_DRUG } from "@/lib/demo/constants";
+import type { Patient } from "@/lib/db/types";
 import { createContext, type AgentContext } from "./context";
 import { intake, isUsableIntake } from "./intake";
+import { coverage } from "./coverage";
+import { router } from "./router";
 
 // Orchestrator: plans and runs the agent chain for one prescription.
 //
-// Phase 2 scope: create the prescription (row lives in status `new`), run
-// intake, and — UNTIL A3 replaces them with real agents — emit placeholder
-// coverage + router events so the timeline still ends with the Bridge
-// needs_approval card Person B is wiring. Every step is wrapped so a failure
-// emits a `blocked` event with a human message instead of throwing.
+// Phase 3 chain: load patient -> intake -> backfill indication + persist
+// (status routing) -> coverage -> router (pauses at needs_approval). The
+// /api/approve route resumes the chain (enroll -> draft PA). Every step is
+// wrapped so a failure emits a `blocked` event instead of throwing.
+
+// Which of a patient's real diagnoses a drug treats. Used ONLY to backfill the
+// indication from patient.conditions — never to invent a diagnosis.
+const DRUG_CONDITION_KEYWORDS: Record<string, string[]> = {
+  jardiance: ["diabetes", "heart failure"],
+  empagliflozin: ["diabetes", "heart failure"],
+};
+
+/** Indication from the patient's own conditions that the drug treats; "" if none match. */
+export function deriveIndication(drug: string, conditions: string[]): string {
+  const keywords = DRUG_CONDITION_KEYWORDS[drug.trim().toLowerCase()];
+  if (!keywords) return "";
+  return conditions
+    .filter((c) => keywords.some((k) => c.toLowerCase().includes(k)))
+    .join(", ");
+}
 
 /** Insert a fresh prescription (status `new`) and return its id. */
 export async function createPrescription(patientId: string): Promise<string> {
@@ -19,8 +36,7 @@ export async function createPrescription(patientId: string): Promise<string> {
     .from("prescriptions")
     .insert({
       patient_id: patientId,
-      // NOT NULL placeholder until intake fills the real drug.
-      drug: "(pending intake)",
+      drug: "(pending intake)", // NOT NULL placeholder until intake fills it
       status: "new",
       is_seed: false,
     })
@@ -34,9 +50,9 @@ export async function createPrescription(patientId: string): Promise<string> {
 }
 
 /**
- * Double-submit guard: return the id of a recent non-seed prescription for this
- * patient still in `new`/`routing`, else null. Uses REAL wall-clock time (this
- * dedups rapid duplicate HTTP submits), not the demo clock.
+ * Double-submit guard: id of a recent non-seed prescription for this patient
+ * still in `new`/`routing`, else null. REAL wall-clock (dedups rapid duplicate
+ * HTTP submits), not the demo clock.
  */
 export async function findRecentPrescription(
   patientId: string,
@@ -87,21 +103,32 @@ export async function run(
   const { rxId } = opts;
   const ctx = createContext(patientId, rxId);
 
-  // --- intake ---
+  // --- load patient ---
+  let patient: Patient;
+  try {
+    const { data, error } = await db.from("patients").select("*").eq("id", patientId).single();
+    if (error) throw new Error(error.message);
+    patient = data as Patient;
+  } catch (err) {
+    await emitBlocked(ctx, "intake", "Could not load the patient", err);
+    return;
+  }
+
+  // --- intake --- (agent resolves its own step, incl. blocked on failure) ---
   let result;
   try {
     result = await intake(transcript, ctx);
   } catch (err) {
-    await emitBlocked(ctx, "intake", "Couldn't process the prescription", err);
+    console.error("[orchestrator] intake failed:", err);
     return;
   }
-
   if (!isUsableIntake(result)) {
-    // intake already emitted a blocked event; leave the row at status `new`.
+    // intake already blocked its step; leave the prescription at status `new`.
     return;
   }
 
-  // --- persist parsed fields; flip status new -> routing ---
+  // --- backfill indication from the patient's real conditions; persist; -> routing ---
+  const indication = result.indication || deriveIndication(result.drug, patient.conditions ?? []);
   try {
     const { error } = await db
       .from("prescriptions")
@@ -109,7 +136,7 @@ export async function run(
         drug: result.drug,
         dose: result.dose || null,
         frequency: result.frequency || null,
-        indication: result.indication || null,
+        indication: indication || null,
         status: "routing",
       })
       .eq("id", rxId);
@@ -119,31 +146,19 @@ export async function run(
     return;
   }
 
-  // --- placeholder coverage (real coverage agent lands in A3) ---
+  // --- coverage --- (agent resolves its own step) ---
+  let coverageResult;
   try {
-    await ctx.emit({
-      agent: "coverage",
-      status: "done",
-      title: "Coverage checked",
-      detail: "PA required · $480 copay",
-      simulated: true,
-    });
+    coverageResult = await coverage(patient, ctx);
   } catch (err) {
-    await emitBlocked(ctx, "coverage", "Coverage check failed", err);
+    console.error("[orchestrator] coverage failed:", err);
     return;
   }
 
-  // --- placeholder router (real router lands in A3) ---
+  // --- router (pauses at needs_approval; /api/approve resumes) ---
   try {
-    await ctx.emit({
-      agent: "router",
-      status: "needs_approval",
-      title: "Recommended: Medvantx Bridge",
-      detail: "Already on therapy; new plan requires prior authorization.",
-      simulated: true,
-      data: { action: "enroll", program: "bridge", rxId, drug: DEMO_DRUG.name },
-    });
+    await router(patient, coverageResult, ctx);
   } catch (err) {
-    await emitBlocked(ctx, "router", "Routing failed", err);
+    console.error("[orchestrator] router failed:", err);
   }
 }

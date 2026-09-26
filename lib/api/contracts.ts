@@ -23,7 +23,13 @@
 
 import { z } from "zod";
 
-import { PA_STATUSES } from "@/lib/db/types";
+import { ENROLLMENT_PROGRAMS, PA_STATUSES } from "@/lib/db/types";
+
+// Router output space, for display/labeling by Person B. The router can also
+// return "retail" and "escalate", which are NOT enrollable programs (no
+// enrollments row is created for them). Addition to the contract, not a change.
+export const ROUTER_PROGRAMS = [...ENROLLMENT_PROGRAMS, "retail", "escalate"] as const;
+export type RouterProgramLabel = (typeof ROUTER_PROGRAMS)[number];
 
 // UUID validation. NOTE: zod 4's z.uuid() enforces RFC 9562 (version + variant
 // bits). The fixed demo IDs in lib/demo/constants.ts (e.g. 1111...-1111-...) are

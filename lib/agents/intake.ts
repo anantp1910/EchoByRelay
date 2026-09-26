@@ -99,39 +99,36 @@ function fallbackParse(transcript: string): Omit<IntakeResult, "source"> {
   return { patientName, drug, dose, frequency, indication };
 }
 
-/** Intake with timeline events. Emits running, then done (or blocked if unusable). */
+/** Intake as one step: running -> done (or blocked if unusable). */
 export async function intake(transcript: string, ctx: AgentContext): Promise<IntakeResult> {
-  await ctx.emit({
-    agent: "intake",
-    status: "running",
-    title: "Listening to the prescription…",
+  const s = await ctx.step("intake", "Listening to the prescription…", {
     detail: "Parsing the doctor's sentence.",
   });
 
-  const result = await parseIntake(transcript);
+  let result: IntakeResult;
+  try {
+    result = await parseIntake(transcript);
+  } catch (err) {
+    await s.blocked("Couldn't process the prescription", err instanceof Error ? err.message : String(err));
+    throw err;
+  }
 
   if (!isUsableIntake(result)) {
-    await ctx.emit({
-      agent: "intake",
-      status: "blocked",
-      title: "Couldn't understand the prescription",
-      detail: "No medication was recognized. Please repeat the order.",
-      simulated: result.source === "fallback",
-    });
+    await s.blocked(
+      "Couldn't understand the prescription",
+      "No medication was recognized. Please repeat the order.",
+      { simulated: result.source === "fallback" }
+    );
     return result;
   }
 
   const summary = [result.drug, result.dose, result.frequency].filter(Boolean).join(" ");
-  await ctx.emit({
-    agent: "intake",
-    status: "done",
-    title: `Understood: ${summary}`,
-    detail:
-      result.source === "ai"
-        ? "Parsed by Grok (fast model)."
-        : "Parsed by deterministic fallback (no AI).",
-    simulated: result.source === "fallback",
-  });
+  await s.done(
+    `Understood: ${summary}`,
+    result.source === "ai" ? "Parsed by Grok (fast model)." : "Parsed by deterministic fallback (no AI).",
+    undefined,
+    { simulated: result.source === "fallback" }
+  );
 
   return result;
 }
