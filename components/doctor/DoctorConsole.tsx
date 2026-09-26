@@ -1,11 +1,14 @@
 "use client";
 
 import { Bell, BellOff, ExternalLink, Languages, MapPin, RotateCcw, TriangleAlert, Users } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 
 import { AppHeader } from "@/components/AppHeader";
 import { AgentTimeline, type Decision } from "@/components/AgentTimeline";
+import { CheckInStrip, checkInEvents, FlagPills } from "@/components/checkins/CheckInBits";
+import type { CheckInView } from "@/components/checkins/types";
+import { useCheckIns, visibleCheckIns } from "@/components/checkins/useCheckIns";
 import type { AlertRow, PatientRow } from "@/components/fixtures";
 import { ALERT, alertTone } from "@/components/labels";
 import { StatusPill, TONE_CLASSES } from "@/components/StatusPill";
@@ -48,7 +51,21 @@ export function DoctorConsole() {
 
   // Show the current prescription's steps only; older runs stay in the audit trail.
   const rxId = selected?.rxId;
-  const events = rxId ? live.events.filter((e) => e.rx_id === rxId || e.rx_id === null) : live.events;
+  // Check-ins (sample data until the check_ins table exists), after the agent chain.
+  const checkins = useCheckIns(selected?.patient.id ?? selectedId);
+  const patientFirst = selected?.patient.name.split(" ")[0] ?? "Patient";
+  const { memberNames } = doctor;
+  const nameFor = useCallback(
+    (memberId: string | null) =>
+      memberId === null ? patientFirst : (memberNames.get(memberId)?.split(" ")[0] ?? "Care circle"),
+    [patientFirst, memberNames]
+  );
+  const events = useMemo(() => {
+    const agentEvents = rxId ? live.events.filter((e) => e.rx_id === rxId || e.rx_id === null) : live.events;
+    return live.state === "ready" ? [...agentEvents, ...checkInEvents(checkins.checkIns, nameFor)] : agentEvents;
+  }, [live.events, live.state, rxId, checkins.checkIns, nameFor]);
+  const latestCheckInFor = (patientId: string | null): CheckInView | null =>
+    patientId && checkins.day !== null ? (visibleCheckIns(patientId, checkins.day)[0] ?? null) : null;
   const pending = events.findLast((e) => e.status === "needs_approval");
   const letterEvent = letterRx ? live.events.findLast((e) => e.rx_id === letterRx && isPaStep(e)) : undefined;
 
@@ -149,7 +166,9 @@ export function DoctorConsole() {
         </aside>
 
         <main className="flex min-w-0 flex-col gap-4">
-          <PatientHeader row={selected} loading={doctor.state === "loading"} />
+          <PatientHeader row={selected} loading={doctor.state === "loading"}>
+            <CheckInStrip latest={checkins.latest} nameFor={nameFor} />
+          </PatientHeader>
 
           <section aria-label="New prescription by voice" className="rounded-xl border border-line bg-card p-5">
             <VoiceButton onTranscript={handleTranscript} />
@@ -180,6 +199,7 @@ export function DoctorConsole() {
           <Panel title="Alerts" count={doctor.state === "ready" ? doctor.alerts.length : undefined} icon={Bell}>
             <AlertsInbox
               alerts={doctor.alerts}
+              latestCheckInFor={latestCheckInFor}
               state={doctor.state}
               onRetry={doctor.retry}
               onAction={handleAlert}
@@ -303,7 +323,15 @@ function PatientList({
   );
 }
 
-function PatientHeader({ row, loading }: { row: PatientRow | null; loading: boolean }) {
+function PatientHeader({
+  row,
+  loading,
+  children,
+}: {
+  row: PatientRow | null;
+  loading: boolean;
+  children?: React.ReactNode;
+}) {
   if (!row) {
     return (
       <section className="rounded-xl border border-line bg-card px-5 py-4">
@@ -338,17 +366,20 @@ function PatientHeader({ row, loading }: { row: PatientRow | null; loading: bool
         </p>
       </div>
       {row.status && <StatusPill status={row.status} size="md" className="ml-auto" />}
+      {children && <div className="w-full border-t border-line pt-2">{children}</div>}
     </section>
   );
 }
 
 function AlertsInbox({
   alerts,
+  latestCheckInFor,
   state,
   onRetry,
   onAction,
 }: {
   alerts: AlertRow[];
+  latestCheckInFor: (patientId: string | null) => CheckInView | null;
   state: "loading" | "ready" | "error";
   onRetry: () => void;
   onAction: (alert: AlertRow) => void;
@@ -381,6 +412,7 @@ function AlertsInbox({
     <ul className="flex flex-col gap-2" aria-live="polite">
       {alerts.map((a) => {
         const copy = ALERT[a.kind];
+        const checkIn = latestCheckInFor(a.patientId);
         return (
           <li
             key={a.id}
@@ -392,6 +424,11 @@ function AlertsInbox({
               <span className="font-medium">{a.patientName}</span>
               {a.detail && <> · {a.detail}</>}
             </p>
+            {checkIn && checkIn.flags.length > 0 && (
+              <p className="mt-1.5 flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground" data-testid="alert-checkin">
+                Day {checkIn.day} check-in: <FlagPills flags={checkIn.flags} />
+              </p>
+            )}
             {a.kind === "no_pickup" && a.patientId ? (
               <Button
                 size="sm"

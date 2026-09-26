@@ -4,6 +4,7 @@ import { AnimatePresence, motion } from "framer-motion";
 import {
   Bot,
   Check,
+  ClipboardCheck,
   CreditCard,
   FilePen,
   FileText,
@@ -23,6 +24,8 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import { FlagPills } from "@/components/checkins/CheckInBits";
+import { CHECKIN_FLAGS, type CheckInFlag } from "@/components/checkins/types";
 import type { AgentEvent, AgentEventStatus } from "@/lib/db/types";
 import { cn } from "@/lib/utils";
 
@@ -42,6 +45,7 @@ const AGENT: Record<string, { icon: LucideIcon; label: string }> = {
   patientComms: { icon: MessageCircle, label: "Patient comms" },
   checkout: { icon: CreditCard, label: "Checkout" },
   watchdog: { icon: Radar, label: "Watchdog" },
+  checkin: { icon: ClipboardCheck, label: "Check-in" },
 };
 const agentMeta = (agent: string) => AGENT[agent] ?? { icon: Bot, label: agent };
 
@@ -54,6 +58,20 @@ const NODE: Record<Tone, string> = {
 
 
 export type Decision = "approve" | "reject";
+
+/** Reads a number field from an event's jsonb `data`. */
+function dataNumber(event: AgentEvent, key: string): number | undefined {
+  const d = event.data;
+  if (d && typeof d === "object" && !Array.isArray(d) && typeof d[key] === "number") return d[key] as number;
+  return undefined;
+}
+
+/** Check-in flags carried in `data.flags`. */
+function dataFlags(event: AgentEvent): CheckInFlag[] {
+  const d = event.data;
+  if (!d || typeof d !== "object" || Array.isArray(d) || !Array.isArray(d.flags)) return [];
+  return d.flags.filter((f): f is CheckInFlag => (CHECKIN_FLAGS as readonly unknown[]).includes(f));
+}
 
 /** Reads a string field from an event's jsonb `data`. */
 function dataField(event: AgentEvent, key: string): string | undefined {
@@ -230,6 +248,9 @@ function TimelineStep({
   const program = dataField(event, "program");
   const decidedBy = dataField(event, "decidedBy");
   const decidedVia = dataField(event, "decidedVia");
+  const demoDay = dataNumber(event, "demoDay"); // check-ins: shown instead of a clock time
+  const badge = dataField(event, "badge");
+  const flags = dataFlags(event);
   const hasLetter =
     dataField(event, "action") === "submit_pa" && event.status !== "running" && event.status !== "blocked";
 
@@ -250,9 +271,13 @@ function TimelineStep({
 
       <div className="min-w-0 flex-1 pt-0.5">
         <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-          <span className="text-xs font-bold tracking-wide text-muted-foreground uppercase">{meta.label}</span>
+          <span className="text-xs font-bold tracking-wide text-muted-foreground uppercase">
+            {meta.label}
+            {demoDay !== undefined && <> · Day {demoDay}</>}
+          </span>
           {event.simulated && <SimulatedBadge />}
-          <LocalTime iso={event.created_at} className="ml-auto" />
+          {badge && <SimulatedBadge label={badge} />}
+          {demoDay === undefined && <LocalTime iso={event.created_at} className="ml-auto" />}
         </div>
 
         <p className={cn("mt-0.5 font-medium text-foreground", dense ? "text-sm" : "text-base")}>{event.title}</p>
@@ -280,6 +305,12 @@ function TimelineStep({
                 {decidedVia === "voice" ? " · by voice" : ""}
               </span>
             )}
+          </div>
+        )}
+
+        {flags.length > 0 && (
+          <div className="mt-1.5">
+            <FlagPills flags={flags} />
           </div>
         )}
 

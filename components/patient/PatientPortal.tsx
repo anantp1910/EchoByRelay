@@ -6,6 +6,8 @@ import Link from "next/link";
 import { useState } from "react";
 
 import { FixtureBadge, RelayMark } from "@/components/AppHeader";
+import { CheckInCard, CheckInHistory, CheckInNudge } from "@/components/checkins/CheckInCard";
+import { useCheckIns } from "@/components/checkins/useCheckIns";
 import { PROGRAM, isRouterProgram } from "@/components/labels";
 import { LocalTime } from "@/components/LocalTime";
 import { SimulatedBadge } from "@/components/SimulatedBadge";
@@ -189,8 +191,13 @@ export function PatientPortal({ patientId }: { patientId: string }) {
   const lang = langChoice?.viewer === viewer ? langChoice.lang : viewerLang;
   const t = T[lang];
   const [payOpen, setPayOpen] = useState(false);
+  const checkins = useCheckIns(patientId);
 
   const first = (name: string) => name.split(" ")[0];
+  const nameFor = (memberId: string | null) =>
+    memberId === null
+      ? first(patient?.name ?? "")
+      : first(circle.find((m) => m.id === memberId)?.name ?? (lang === "es" ? "Familiar" : "Family member"));
   const program = rx?.program ?? null;
   const step = progressStep(rx, data.enrollment, order, data.mandate, data.day);
   const payable = order !== null && order.status === "created" && data.orderProgram === "cash_pay";
@@ -264,6 +271,24 @@ export function PatientPortal({ patientId }: { patientId: string }) {
             )}
           </section>
 
+          {rx && checkins.due && (
+            <>
+              {viewer === "member" && (
+                <CheckInNudge due={checkins.due} lang={lang} patientFirstName={first(patient.name)} />
+              )}
+              <CheckInCard
+                key={`${checkins.due.day}-${viewer}`}
+                due={checkins.due}
+                lang={lang}
+                patientId={patient.id}
+                patientFirstName={first(patient.name)}
+                prescriptionId={rx.id}
+                proxyMemberId={viewer === "member" && member ? member.id : null}
+                onSubmit={checkins.submit}
+              />
+            </>
+          )}
+
           <Card>
             <CardTitle icon={Pill}>{viewer === "member" ? t.medicineFor(first(patient.name)) : t.medicine}</CardTitle>
             {rx ? (
@@ -301,6 +326,8 @@ export function PatientPortal({ patientId }: { patientId: string }) {
             <ProgressTracker steps={t.steps} current={step} nowLabel={t.now} />
             {data.mandate?.recurring && <p className="mt-3 text-base text-ok-strong">{t.refillOn}</p>}
           </Card>
+
+          {rx && <CheckInHistory checkIns={checkins.checkIns} lang={lang} nameFor={nameFor} />}
 
           {viewer === "member" && member?.can_pay && (
             <Card>

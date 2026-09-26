@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 
-import { FIXTURE_ALERTS, FIXTURE_PATIENT_ROWS, type AlertRow, type PatientRow } from "@/components/fixtures";
+import { FIXTURE_ALERTS, FIXTURE_ANA, FIXTURE_PATIENT_ROWS, type AlertRow, type PatientRow } from "@/components/fixtures";
 import { PROGRAM } from "@/components/labels";
 import { mergeNewest, upsertNewest as upsert, type Row } from "@/components/rows";
 import { labelFor } from "@/components/StatusPill";
@@ -31,13 +31,14 @@ function rxNote(rx: Prescription, enrollment?: Enrollment, order?: Order): strin
 
 interface Tables {
   patients: PatientLite[];
+  circle: { id: string; name: string }[];
   prescriptions: Prescription[];
   alerts: Alert[];
   enrollments: Enrollment[];
   orders: Order[];
 }
 
-const EMPTY: Tables = { patients: [], prescriptions: [], alerts: [], enrollments: [], orders: [] };
+const EMPTY: Tables = { patients: [], circle: [], prescriptions: [], alerts: [], enrollments: [], orders: [] };
 
 /**
  * Doctor portal data: patient rail + alerts inbox, live via Supabase Realtime
@@ -78,21 +79,23 @@ export function useDoctorData() {
 
     (async () => {
       try {
-        const [patients, prescriptions, alerts, enrollments, orders] = await Promise.all([
+        const [patients, prescriptions, alerts, enrollments, orders, circle] = await Promise.all([
           client.from("patients").select("id, name, language, rural").order("name"),
           client.from("prescriptions").select("*").order("created_at", { ascending: false }).limit(500),
           client.from("alerts").select("*").order("created_at", { ascending: false }).limit(200),
           client.from("enrollments").select("*").order("created_at", { ascending: false }).limit(500),
           client.from("orders").select("*").order("created_at", { ascending: false }).limit(500),
+          client.from("care_circle").select("id, name"),
         ]);
         if (cancelled) return;
-        const err = [patients, prescriptions, alerts, enrollments, orders].find((r) => r.error)?.error;
+        const err = [patients, prescriptions, alerts, enrollments, orders, circle].find((r) => r.error)?.error;
         if (err) throw new Error(err.message);
         // Merge with anything Realtime already delivered (those rows are newer).
         setT((prev) => {
           const merge = mergeNewest;
           return {
             patients: (patients.data ?? []) as PatientLite[],
+            circle: (circle.data ?? []) as Tables["circle"],
             prescriptions: merge((prescriptions.data ?? []) as Prescription[], prev.prescriptions),
             alerts: merge((alerts.data ?? []) as Alert[], prev.alerts),
             enrollments: merge((enrollments.data ?? []) as Enrollment[], prev.enrollments),
@@ -161,5 +164,11 @@ export function useDoctorData() {
     return { rows, alerts };
   }, [live, t]);
 
-  return { ...derived, state, error, retry };
+  // Care-circle member names (e.g. who answered a check-in).
+  const memberNames = useMemo(
+    () => new Map((live ? t.circle : [FIXTURE_ANA]).map((m) => [m.id, m.name])),
+    [live, t.circle]
+  );
+
+  return { ...derived, memberNames, state, error, retry };
 }
