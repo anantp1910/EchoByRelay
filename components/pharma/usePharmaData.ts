@@ -20,6 +20,7 @@ const FIXTURE_METRICS: DashboardMetrics = {
   ...FIXTURE_KPIS,
   sample: true,
   paHoursSaved: 3, // 9 fake PAs x 20 min
+  daysWithoutMedication: 0,
   rescuedSeries: [
     { day: 0, count: 3 },
     { day: 8, count: 14 },

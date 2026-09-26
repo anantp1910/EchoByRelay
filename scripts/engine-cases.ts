@@ -71,6 +71,8 @@ async function main() {
   assert.equal((await approval(switchCard)).status, 200);
   assert.equal((await approval(switchCard)).status, 200);
   assert.equal(memory.tables.orders.length, 2);
+  await runDemoAction({ action: "deny_pa" });
+  assert.equal(memory.tables.pa_requests.length, 2, "a settled appeal is not re-drafted by a repeat denial");
   assert.equal(rx().expected_delivery_day, null);
   const cashOrder = memory.tables.orders.find((o) => o.amount_usd === 89)!;
   const payment = await checkout(new Request("http://localhost", { method: "POST", body: JSON.stringify({ orderId: cashOrder.id, payerMemberId: ANA_ID, capUsd: 100, recurring: true, passkeyConfirmed: true }) }) as Parameters<typeof checkout>[0]);
@@ -92,6 +94,14 @@ async function main() {
   assert.equal(metrics.scriptsRescued, 1);
   assert.equal(metrics.sample, false);
   assert.equal(metrics.paHoursSaved, 0.3, "one initial PA x 20 min; the appeal is not a new PA");
+  assert.equal(metrics.medianDaysToTherapy, 2, "first medicine in hand = Bridge delivery on day 2");
+  assert.equal(metrics.daysWithoutMedication, 0, "Bridge supply lasted until Cash Pay arrived");
+  assert.equal(memory.tables.agent_events.filter((e) => e.status === "needs_approval").length, 0, "no open approval cards remain");
+  const appeal = memory.tables.agent_events.find((e) => e.agent === "paDrafter" && (e.data as Row)?.appeal);
+  assert.equal(appeal?.status, "done");
+  assert.equal(appeal?.title, "Appeal letter drafted (optional)");
+  const appealPa = memory.tables.pa_requests.find((p) => p.id === (appeal?.data as Row)?.paRequestId);
+  assert.equal(appealPa?.status, "draft", "the appeal letter stays a viewable draft");
   const messageCount = memory.tables.messages.length;
   await runWatchdog(26);
   assert.equal(memory.tables.messages.length, messageCount);

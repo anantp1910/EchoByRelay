@@ -82,3 +82,29 @@ export async function paDrafter(ctx: AgentContext, opts: { appeal?: boolean } = 
     throw err;
   }
 }
+
+/**
+ * After the doctor approves the post-denial Cash Pay switch, the appeal is no
+ * longer the access path. Resolve its pending card to a done step so no open
+ * approval remains; the pa_request stays a draft and GET /api/pa still shows it.
+ */
+export async function settleAppealDraft(ctx: AgentContext): Promise<void> {
+  if (!ctx.rxId) return;
+  const { data: pending, error } = await db.from("agent_events").select("id,data")
+    .eq("rx_id", ctx.rxId).eq("agent", "paDrafter").eq("status", "needs_approval").contains("data", { appeal: true });
+  if (error) throw new Error(error.message);
+  for (const row of pending ?? []) {
+    const title = "Appeal letter drafted (optional)";
+    const detail = "The doctor chose Medvantx Cash Pay. The appeal stays saved as a draft for reference.";
+    const data = { ...(row.data as Record<string, unknown>), optional: true };
+    const { data: changed, error: updateError } = await db.from("agent_events")
+      .update({ status: "done", title, detail, data }).eq("id", row.id).eq("status", "needs_approval").select("id");
+    if (updateError) throw new Error(updateError.message);
+    if (!changed?.length) continue;
+    const { error: auditError } = await db.from("audit_log").insert({
+      actor: "paDrafter", action: "paDrafter.done",
+      payload: { eventId: row.id, rxId: ctx.rxId, patientId: ctx.patientId, title, detail, simulated: false, data },
+    });
+    if (auditError) console.warn(`[paDrafter] audit_log insert failed: ${auditError.message}`);
+  }
+}

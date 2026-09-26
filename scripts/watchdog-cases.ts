@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { bridgeCliff, deliveryAction, sustainableAccess } from "../lib/agents/watchdogRules";
-import { calculateMetrics, countInitialPaDrafts, type MetricsRows } from "../lib/pharma/metrics";
+import { calculateMetrics, countInitialPaDrafts, daysUncovered, deliveryOf, type MetricsRows } from "../lib/pharma/metrics";
 import { operationId } from "../lib/db/identity";
 
 const shipment = { status: "shipped", expectedDay: 2, day: 0, held: false };
@@ -29,19 +29,24 @@ const rows: MetricsRows = {
   prescriptions: [{ id: "rx1", status: "at_risk", created_at: "2026-09-26", is_seed: false }],
   patients: [{ rural: true }, { rural: false }],
   alerts: [{ rx_id: "rx1", kind: "bridge_cliff", created_at: "2026-09-27" }],
-  enrollments: [{ rx_id: "rx1", program: "bridge", start_day: 0 }, { rx_id: "rx1", program: "cash_pay", start_day: 24 }],
+  enrollments: [{ rx_id: "rx1", program: "bridge", start_day: 0, end_day: 30 }, { rx_id: "rx1", program: "cash_pay", start_day: 24, end_day: null }],
   events: [{ rx_id: "rx1", agent: "intake", status: "done", created_at: "2026-09-26", data: { day: 0 } }],
 };
 assert.equal(calculateMetrics(rows).scriptsRescued, 0);
 rows.prescriptions[0].status = "on_therapy";
-rows.events.push({ rx_id: "rx1", agent: "watchdog", status: "done", created_at: "2026-09-28", data: { day: 26, onTherapy: true, rescued: true } });
+rows.events.push(
+  { rx_id: "rx1", agent: "watchdog", status: "done", created_at: "2026-09-26T02", data: { day: 2, orderId: "o1", program: "bridge", delivered: true } },
+  { rx_id: "rx1", agent: "watchdog", status: "done", created_at: "2026-09-28T01", data: { day: 26, orderId: "o2", program: "cash_pay", delivered: true } },
+  { rx_id: "rx1", agent: "watchdog", status: "done", created_at: "2026-09-28T02", data: { day: 26, onTherapy: true, rescued: true } },
+);
 const metrics = calculateMetrics(rows);
 assert.equal(metrics.scriptsRescued, 1);
-assert.equal(metrics.medianDaysToTherapy, 26);
+assert.equal(metrics.medianDaysToTherapy, 2, "first dose = Bridge delivery on day 2");
+assert.equal(metrics.daysWithoutMedication, 0, "Bridge covers days 2-29; Cash Pay arrives day 26");
 assert.equal(metrics.pctUnderserved, 50);
 assert.deepEqual(metrics.rescuedSeries, [{ day: 26, count: 1 }]);
 assert.equal(metrics.sample, false);
-rows.events.push({ ...rows.events[1] });
+rows.events.push({ ...rows.events[3] });
 assert.equal(calculateMetrics(rows).scriptsRescued, 1);
 console.log("PASS: no rescue before delivery, simulated duration, unique rescued scripts, rural percentage");
 
@@ -63,3 +68,18 @@ assert.equal(countInitialPaDrafts([pa("rx1", "needs_approval", { paRequestId: "p
 assert.equal(calculateMetrics({ ...rows, events: [...rows.events, ...drafts] }).paHoursSaved, 1);
 assert.equal(calculateMetrics({ ...rows, events: [...rows.events, drafts[1]] }).paHoursSaved, 0.3);
 console.log("PASS: PA hours count unique initial drafts at 20 min, exclude appeals and unfinished steps");
+
+// First dose and supply gaps.
+const held = { rx_id: "rx1", agent: "watchdog", status: "done", created_at: "x", data: { day: 3, orderId: "o1", deliveryHeld: true } };
+assert.equal(deliveryOf(held), null, "a held shipment is not medicine in hand");
+assert.deepEqual(deliveryOf({ ...held, data: { day: 2, orderId: "o1", program: "bridge" } }), { day: 2, program: "bridge" }, "legacy delivery rows still count");
+const bridgeEnds20 = [{ rx_id: "rx1", program: "bridge", start_day: 0, end_day: 20 }];
+const twoDeliveries = [{ day: 2, program: "bridge" }, { day: 26, program: "cash_pay" }];
+assert.equal(daysUncovered(twoDeliveries, bridgeEnds20, 2, 26), 6, "days 20-25 had no supply");
+assert.equal(daysUncovered([{ day: 2, program: "bridge" }], [{ ...bridgeEnds20[0], end_day: 30 }], 2, 26), 0);
+const gapRows = { ...rows, enrollments: [{ ...rows.enrollments[0], end_day: 20 }, rows.enrollments[1]] };
+assert.equal(calculateMetrics(gapRows).daysWithoutMedication, 6);
+const unrescued = { ...rows, events: rows.events.filter((e) => !e.data.onTherapy) };
+assert.equal(calculateMetrics(unrescued).daysWithoutMedication, 0, "only rescued prescriptions count toward gaps");
+assert.equal(calculateMetrics(unrescued).medianDaysToTherapy, 2, "first dose counts even before rescue");
+console.log("PASS: first dose includes Bridge supply, held shipments excluded, supply gaps counted for rescued scripts");

@@ -120,12 +120,14 @@ async function main() {
   const metrics = PharmaMetricsResSchema.parse(await http("/api/pharma/metrics", undefined, "GET"));
   assert.equal(metrics.scriptsRescued, baseline.scriptsRescued + 1);
   assert.equal(metrics.sample, false);
+  assert.equal(metrics.daysWithoutMedication, baseline.daysWithoutMedication, "Maria never ran out: Bridge covered her until Cash Pay arrived");
   // Maria's initial PA adds one 20-minute estimate; her appeal must not add another.
   assert.ok(Math.abs(metrics.paHoursSaved - baseline.paHoursSaved - 20 / 60) <= 0.1, "paHoursSaved counts one initial PA, not the appeal");
   console.log("FINAL METRICS", JSON.stringify(metrics, null, 2));
   const { data: events, error } = await db.from("agent_events").select("title,status,data").eq("rx_id", rxId).order("created_at");
   if (error) throw new Error(error.message);
-  assert.ok(events?.every((e) => !["running", "blocked"].includes(e.status)), "no stuck/failed timeline steps");
+  assert.ok(events?.every((e) => !["running", "blocked", "needs_approval"].includes(e.status)), "no stuck, failed or open steps");
+  assert.ok(events?.some((e) => e.title === "Appeal letter drafted (optional)" && e.data?.paRequestId), "appeal resolves after the Cash Pay switch");
   console.log("FINAL TIMELINE");
   for (const event of events ?? []) console.log(`day=${event.data.day} [${event.status}] ${event.title}`);
   console.log("FINAL ALERTS", JSON.stringify(await rows("alerts", "kind,resolved,created_at"), null, 2));

@@ -18,7 +18,7 @@ export async function GET(): Promise<Response> {
     }
     const [prescriptions, patients, alerts, enrollments, events] = await Promise.all([
       all("prescriptions", "id,status,created_at,is_seed"), all("patients", "rural"),
-      all("alerts", "rx_id,kind,created_at"), all("enrollments", "rx_id,program,start_day"),
+      all("alerts", "rx_id,kind,created_at"), all("enrollments", "rx_id,program,start_day,end_day"),
       all("agent_events", "rx_id,agent,status,created_at,data"),
     ]);
     const rows = { prescriptions, patients, alerts, enrollments, events } as unknown as MetricsRows;

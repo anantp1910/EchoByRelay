@@ -139,6 +139,11 @@ export async function POST(request: NextRequest): Promise<Response> {
         const order = await medvantx.createCashPayOrder(ctx, rxId);
         const { notify } = await import("@/lib/agents/patientComms");
         await notify(ctx, "pa_denied_new_plan", { preferTemplate: true, amountUsd: order.amountUsd });
+        if (data.paDenied) {
+          // Cosmetic: a failure here must not undo or fail the approved switch.
+          const { settleAppealDraft } = await import("@/lib/agents/paDrafter");
+          await settleAppealDraft(ctx).catch((err) => console.warn("[approve] appeal settle failed:", err));
+        }
         console.info(`[approve] cash_pay route ${Date.now() - routeStarted}ms`);
         return jsonResponse({ ok: true as const });
       }

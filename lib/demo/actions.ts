@@ -54,7 +54,7 @@ export async function runDemoAction({ action, day: requestedDay }: DemoReq): Pro
         const { data: patient, error: patientError } = await db.from("patients").select("*").eq("id", MARIA_ID).single();
         if (patientError) throw new Error(patientError.message);
         const { data: events, error: eventError } = await db.from("agent_events").select("agent,status,data")
-          .eq("rx_id", rx.id).in("status", ["needs_approval", "approved", "rejected"]);
+          .eq("rx_id", rx.id).in("status", ["needs_approval", "approved", "rejected", "done"]);
         if (eventError) throw new Error(eventError.message);
         const hasReroute = events?.some((e) => e.agent === "router" && e.data?.paDenied);
         const hasAppeal = events?.some((e) => e.agent === "paDrafter" && e.data?.appeal);

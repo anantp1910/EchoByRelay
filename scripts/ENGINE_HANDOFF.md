@@ -43,6 +43,13 @@ Implemented on `engine`; integration into `main` remains Person C's responsibili
 - `components/fixtures.ts` metrics fixture needs `sample` and `paHoursSaved` to satisfy the type.
 - `origin/experience` still carries a stub `app/api/pharma/metrics/route.ts` (fixed numbers). The engine route must win in the main merge.
 
+## Demo polish (integration)
+
+- `medianDaysToTherapy` now means median days from prescription to the first medicine in hand, counting a Bridge/Quick Start delivery (Maria = 2). Person B label: **"Median days to first dose"**.
+- New `daysWithoutMedication`: total days, across rescued prescriptions, after first medicine in hand with no supply. Bridge/Quick Start supply lasts until the enrollment `end_day`; paid, PAP and retail supply is ongoing (Maria = 0). Person B label: **"Days without medication (rescued patients)"**.
+- Delivery steps now carry `delivered: true`; older rows are recognised by `orderId` without a hold.
+- After the doctor approves the post-denial Cash Pay switch, the pending appeal card becomes a done step, "Appeal letter drafted (optional)", keeping `paRequestId`. The appeal `pa_request` stays `draft` and `GET /api/pa/[rxId]` returns it. A repeat `deny_pa` does not draft a second appeal.
+
 ## Still pending
 
 1. Shared-Supabase `rescue` run, final real timeline/alerts/metrics, and real `deny_pa` timing. The isolated timing is not representative of network performance.

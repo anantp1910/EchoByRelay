@@ -214,11 +214,14 @@ export type DemoRes = z.infer<typeof DemoResSchema>;
 
 export const PharmaMetricsResSchema = z.object({
   scriptsRescued: z.number(),
+  // Median days from prescription to first medicine in hand (incl. Bridge/Quick Start).
   medianDaysToTherapy: z.number(),
   bridgeCliffsCaught: z.number(),
   pctUnderserved: z.number(),
   rescuedSeries: z.array(z.object({ day: z.number().int(), count: z.number().int() })),
   programMix: z.array(z.object({ program: z.string(), count: z.number().int() })),
+  // Total days, across rescued prescriptions, after first medicine in hand with no supply.
+  daysWithoutMedication: z.number().int().nonnegative(),
   // Live route computes from DB rows; never a stub. Replaces B's page constant.
   sample: z.literal(false),
   // ESTIMATE, not measured: unique initial PA drafts (appeals excluded) x 20 min,

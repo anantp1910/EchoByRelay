@@ -89,7 +89,7 @@ export async function runWatchdog(day?: number): Promise<void> {
           .eq("id", order.id).eq("status", "shipped").select("id");
         if (deliveryError) throw new Error(deliveryError.message);
         if (!delivered?.length) { await step.done("Delivery already confirmed"); continue; }
-        await step.done("Medicine delivered", `${rx.drug} delivery confirmed on day ${day}.`, { day, orderId: order.id, program: enrollment?.program ?? null });
+        await step.done("Medicine delivered", `${rx.drug} delivery confirmed on day ${day}.`, { day, orderId: order.id, program: enrollment?.program ?? null, delivered: true });
         if (sustainable) await markOnTherapy(ctx, day);
         await notify(ctx, "delivered", { preferTemplate: true });
       } catch (err) {
