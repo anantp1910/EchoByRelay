@@ -50,7 +50,7 @@ export const FIXTURE_MARIA: Patient = {
   insured: true,
   plan_id: MARIA_PLAN_ID,
   income_band: "above_pap",
-  on_drug_before: false,
+  on_drug_before: true,
   is_seed: true,
   created_at: T0,
 };
@@ -158,7 +158,7 @@ export const FIXTURE_MARIA_EVENTS: AgentEvent[] = [
     title: `Routed to ${programLabel("bridge")}`,
     detail: "Free 30-day supply ships today while the PA is reviewed. No cost to the patient.",
     simulated: true,
-    data: { program: "bridge", supplyDays: 30, reasons: ["Insured", "PA required", "Copay above $50"] },
+    data: { program: "bridge", supplyDays: 30, reasons: ["Already on therapy", "Insured", "New plan requires PA"] },
   }),
   event(14, {
     agent: "paDrafter",

@@ -2,16 +2,14 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 
+import { isSupabaseConfigured, supabase } from "@/lib/db/client";
 import type { AgentEvent } from "@/lib/db/types";
 import { MARIA_ID } from "@/lib/demo/constants";
 
 import { FIXTURE_MARIA_EVENTS } from "./fixtures";
 
-// lib/db/client.ts calls createClient() at module load and throws without keys,
-// so it's only ever imported dynamically, behind this check.
-export const HAS_SUPABASE = Boolean(
-  process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-);
+// Without Supabase keys, `supabase` is null and every page runs on fixtures.
+export const HAS_SUPABASE = isSupabaseConfigured;
 
 export type LiveState = "loading" | "ready" | "error";
 export type LiveSource = "live" | "fixture";
@@ -64,14 +62,14 @@ export function useLiveEvents({ patientId, rxId, limit = 100 }: Options = {}) {
   }
 
   useEffect(() => {
-    if (!HAS_SUPABASE) return;
+    if (!supabase) return;
+    const client = supabase;
     let cancelled = false;
     let cleanup: (() => void) | undefined;
 
     (async () => {
       try {
-        const { supabase } = await import("@/lib/db/client");
-        let q = supabase
+        let q = client
           .from("agent_events")
           .select("*")
           .order("created_at", { ascending: true })
@@ -89,7 +87,7 @@ export function useLiveEvents({ patientId, rxId, limit = 100 }: Options = {}) {
           : patientId
             ? `patient_id=eq.${patientId}`
             : undefined;
-        const channel = supabase
+        const channel = client
           .channel(`agent_events:${rxId ?? patientId ?? "all"}:${attempt}`)
           .on(
             "postgres_changes",
@@ -104,7 +102,7 @@ export function useLiveEvents({ patientId, rxId, limit = 100 }: Options = {}) {
             }
           )
           .subscribe();
-        cleanup = () => void supabase.removeChannel(channel);
+        cleanup = () => void client.removeChannel(channel);
       } catch (e) {
         if (cancelled) return;
         setError(e instanceof Error ? e.message : "Could not load events");
