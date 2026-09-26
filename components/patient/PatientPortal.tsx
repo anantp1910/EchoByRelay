@@ -149,7 +149,9 @@ const FREE_PROGRAMS = new Set(["bridge", "quick_start", "pap"]);
 
 /**
  * Index of the current step (0-4), or 5 when all are done. Steps complete in
- * order: Prescribed → Path approved → Shipping → Delivered → Refill.
+ * order: Prescribed → Path approved → Shipping → Delivered → Refill. "Shipping"
+ * stays current while the medicine is in transit and completes together with
+ * "Delivered" when it arrives (free supply: demo day reaches expected_delivery_day).
  */
 function progressStep(
   rx: Prescription | null,
@@ -159,15 +161,14 @@ function progressStep(
   day: number | null
 ): number {
   const free = rx?.program ? FREE_PROGRAMS.has(rx.program) : false;
-  const done = [
-    rx !== null,
-    Boolean(rx?.program) || enrollment !== null,
-    order ? ["paid", "shipped", "delivered"].includes(order.status) : free && enrollment?.status === "active",
-    order
-      ? order.status === "delivered"
-      : free && day !== null && rx?.expected_delivery_day != null && day >= rx.expected_delivery_day,
-    mandate?.recurring === true,
-  ];
+  const arrived = order
+    ? order.status === "delivered"
+    : free &&
+      enrollment !== null &&
+      day !== null &&
+      rx?.expected_delivery_day != null &&
+      day >= rx.expected_delivery_day;
+  const done = [rx !== null, Boolean(rx?.program) || enrollment !== null, arrived, arrived, mandate?.recurring === true];
   const i = done.findIndex((d) => !d);
   return i === -1 ? done.length : i;
 }
