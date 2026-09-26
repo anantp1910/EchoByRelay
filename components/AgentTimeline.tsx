@@ -6,6 +6,7 @@ import {
   Check,
   CreditCard,
   FilePen,
+  FileText,
   Inbox,
   Landmark,
   LoaderCircle,
@@ -27,6 +28,7 @@ import { cn } from "@/lib/utils";
 
 import { isRouterProgram, PROGRAM } from "./labels";
 import { StatusPill, TONE_CLASSES, toneFor, type Tone } from "./StatusPill";
+import { useMounted } from "./useMounted";
 
 const AGENT: Record<string, { icon: LucideIcon; label: string }> = {
   trustGate: { icon: ShieldCheck, label: "Trust gate" },
@@ -49,8 +51,17 @@ const NODE: Record<Tone, string> = {
   pending: "bg-pending-soft text-pending-strong ring-1 ring-pending/40",
 };
 
-/** Timestamps render as UTC HH:MM:SS — identical on server and client. */
-const clock = (iso: string) => iso.slice(11, 19);
+/** Viewer's local time, rendered after mount so server and client HTML match. */
+function LocalTime({ iso }: { iso: string }) {
+  const mounted = useMounted();
+  return (
+    <time dateTime={iso} className="ml-auto font-mono text-xs text-muted-foreground tabular">
+      {mounted
+        ? new Date(iso).toLocaleTimeString([], { hour: "numeric", minute: "2-digit", second: "2-digit" })
+        : null}
+    </time>
+  );
+}
 
 export type Decision = "approve" | "reject";
 
@@ -76,6 +87,8 @@ interface AgentTimelineProps {
    */
   onDecision?: (event: AgentEvent, decision: Decision) => void;
   readOnly?: boolean;
+  /** Shows "Open letter" on PA steps (data.action "submit_pa") once drafted. */
+  onOpenLetter?: (event: AgentEvent) => void;
   /** dense = doctor console; comfortable = pharma / wide views. */
   density?: "dense" | "comfortable";
   emptyTitle?: string;
@@ -91,6 +104,7 @@ export function AgentTimeline({
   onRetry,
   onDecision,
   readOnly = false,
+  onOpenLetter,
   density = "dense",
   emptyTitle = "No agent activity yet",
   emptyHint = "Steps appear here as soon as a prescription starts moving.",
@@ -160,6 +174,7 @@ export function AgentTimeline({
             last={i === events.length - 1}
             density={density}
             onDecision={readOnly ? undefined : onDecision}
+            onOpenLetter={onOpenLetter}
             readOnly={readOnly}
           />
         ))}
@@ -210,12 +225,14 @@ function TimelineStep({
   last,
   density,
   onDecision,
+  onOpenLetter,
   readOnly,
 }: {
   event: AgentEvent;
   last: boolean;
   density: "dense" | "comfortable";
   onDecision?: AgentTimelineProps["onDecision"];
+  onOpenLetter?: AgentTimelineProps["onOpenLetter"];
   readOnly: boolean;
 }) {
   const meta = agentMeta(event.agent);
@@ -223,9 +240,12 @@ function TimelineStep({
   const program = dataField(event, "program");
   const decidedBy = dataField(event, "decidedBy");
   const decidedVia = dataField(event, "decidedVia");
+  const hasLetter =
+    dataField(event, "action") === "submit_pa" && event.status !== "running" && event.status !== "blocked";
 
   return (
     <motion.li
+      id={`step-${event.id}`}
       layout="position"
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
@@ -249,9 +269,7 @@ function TimelineStep({
               Simulated
             </span>
           )}
-          <time dateTime={event.created_at} className="ml-auto font-mono text-xs text-muted-foreground tabular">
-            {clock(event.created_at)}
-          </time>
+          <LocalTime iso={event.created_at} />
         </div>
 
         <p className={cn("mt-0.5 font-medium text-foreground", dense ? "text-sm" : "text-base")}>{event.title}</p>
@@ -280,6 +298,18 @@ function TimelineStep({
               </span>
             )}
           </div>
+        )}
+
+        {hasLetter && onOpenLetter && (
+          <Button
+            size="sm"
+            variant="outline"
+            className="mt-2"
+            onClick={() => onOpenLetter(event)}
+            data-testid="open-letter"
+          >
+            <FileText aria-hidden /> Open letter
+          </Button>
         )}
 
         <AnimatePresence initial={false}>

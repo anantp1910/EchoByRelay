@@ -4,13 +4,13 @@ import { Moon, Sun } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useTheme } from "next-themes";
-import { useSyncExternalStore } from "react";
 
 import { Button } from "@/components/ui/button";
 import { MARIA_ID } from "@/lib/demo/constants";
 import { cn } from "@/lib/utils";
 
 import { HAS_SUPABASE } from "./useLiveEvents";
+import { useMounted } from "./useMounted";
 
 const NAV = [
   { href: "/doctor", label: "Doctor" },
@@ -31,11 +31,6 @@ export function RelayMark({ className }: { className?: string }) {
     </Link>
   );
 }
-
-// False during SSR and hydration, true after mount — so theme-dependent markup
-// matches the server HTML on the first client render.
-const noopSubscribe = () => () => {};
-const useMounted = () => useSyncExternalStore(noopSubscribe, () => true, () => false);
 
 export function ThemeToggle() {
   const { resolvedTheme, setTheme } = useTheme();

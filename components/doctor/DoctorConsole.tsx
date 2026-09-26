@@ -1,7 +1,7 @@
 "use client";
 
-import { Bell, BellOff, Languages, MapPin, RotateCcw, TriangleAlert, Users } from "lucide-react";
-import { useState } from "react";
+import { Bell, BellOff, ExternalLink, Languages, MapPin, RotateCcw, TriangleAlert, Users } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 
 import { AppHeader } from "@/components/AppHeader";
@@ -20,15 +20,28 @@ import type { AgentEvent } from "@/lib/db/types";
 import { MARIA_ID } from "@/lib/demo/constants";
 import { cn } from "@/lib/utils";
 
+import { PaDrawer } from "./PaDrawer";
 import { useDoctorData } from "./useDoctorData";
+import { APPROVE_COMMAND } from "./voiceCommands";
 
-/** "approve" / "approved" / "aprobar" alone approves the pending card by voice. */
-const APPROVE_COMMAND = /^\s*(approve|approved|aprobar|aprobado)[\s.!]*$/i;
+const isPaStep = (e: AgentEvent) =>
+  typeof e.data === "object" && e.data !== null && !Array.isArray(e.data) && e.data.action === "submit_pa";
+
+/** Scrolls the timeline to the step waiting on the doctor. False if there is none yet. */
+function scrollToPending(): boolean {
+  const el = document.querySelector('[data-status="needs_approval"]');
+  el?.scrollIntoView({ behavior: "smooth", block: "center" });
+  return el !== null;
+}
 
 /** Doctor portal: calm, dense, fast. Patients · voice + timeline · alerts. */
 export function DoctorConsole() {
   const [selectedId, setSelectedId] = useState<string>(MARIA_ID);
   const [patientsOpen, setPatientsOpen] = useState(false);
+  const [letterRx, setLetterRx] = useState<string | null>(null);
+  const [letterOpen, setLetterOpen] = useState(false);
+  // Set by alert actions: scroll to the approval card once the patient's steps load.
+  const wantPending = useRef(false);
   const doctor = useDoctorData();
   const selected = doctor.rows.find((r) => r.patient.id === selectedId) ?? doctor.rows[0] ?? null;
   const live = useLiveEvents({ patientId: selected?.patient.id ?? selectedId });
@@ -37,6 +50,11 @@ export function DoctorConsole() {
   const rxId = selected?.rxId;
   const events = rxId ? live.events.filter((e) => e.rx_id === rxId || e.rx_id === null) : live.events;
   const pending = events.findLast((e) => e.status === "needs_approval");
+  const letterEvent = letterRx ? live.events.findLast((e) => e.rx_id === letterRx && isPaStep(e)) : undefined;
+
+  useEffect(() => {
+    if (wantPending.current && scrollToPending()) wantPending.current = false;
+  }, [events]);
 
   function decide(event: AgentEvent, decision: Decision, via: ApproveVia = "click") {
     // Optimistic: the card closes at once. Enrollment takes ~10s server-side and
@@ -76,6 +94,24 @@ export function DoctorConsole() {
   function openPatient(id: string) {
     setSelectedId(id);
     setPatientsOpen(false);
+  }
+
+  function openLetter(rx: string) {
+    setLetterRx(rx);
+    setLetterOpen(true);
+  }
+
+  function handleAlert(a: AlertRow) {
+    if (!a.patientId) return;
+    openPatient(a.patientId);
+    if (a.kind === "pa_denied" && a.rx_id) {
+      openLetter(a.rx_id);
+    } else if (a.kind === "bridge_cliff" || a.kind === "escalation") {
+      // Another patient's steps haven't loaded yet; the effect scrolls once they do.
+      if (a.patientId === selected?.patient.id && scrollToPending()) return;
+      wantPending.current = true;
+      document.getElementById("timeline-title")?.scrollIntoView({ behavior: "smooth" });
+    }
   }
 
   const patientList = (
@@ -132,6 +168,7 @@ export function DoctorConsole() {
               error={live.error}
               onRetry={live.retry}
               onDecision={(event, decision) => decide(event, decision)}
+              onOpenLetter={(event) => event.rx_id && openLetter(event.rx_id)}
               density="dense"
               emptyTitle={`Nothing in motion for ${selected?.patient.name.split(" ")[0] ?? "this patient"}`}
               emptyHint="Hold the mic and say the prescription to start."
@@ -141,10 +178,21 @@ export function DoctorConsole() {
 
         <aside aria-label="Alerts">
           <Panel title="Alerts" count={doctor.state === "ready" ? doctor.alerts.length : undefined} icon={Bell}>
-            <AlertsInbox alerts={doctor.alerts} loading={doctor.state === "loading"} onOpen={openPatient} />
+            <AlertsInbox alerts={doctor.alerts} loading={doctor.state === "loading"} onAction={handleAlert} />
           </Panel>
         </aside>
       </div>
+
+      {letterRx && (
+        <PaDrawer
+          key={letterRx}
+          open={letterOpen}
+          onOpenChange={setLetterOpen}
+          rxId={letterRx}
+          event={letterEvent}
+          onApprove={(event, via) => decide(event, "approve", via)}
+        />
+      )}
     </div>
   );
 }
@@ -292,11 +340,11 @@ function PatientHeader({ row, loading }: { row: PatientRow | null; loading: bool
 function AlertsInbox({
   alerts,
   loading,
-  onOpen,
+  onAction,
 }: {
   alerts: AlertRow[];
   loading: boolean;
-  onOpen: (patientId: string) => void;
+  onAction: (alert: AlertRow) => void;
 }) {
   if (loading) return <RowSkeletons />;
   if (alerts.length === 0) {
@@ -324,15 +372,30 @@ function AlertsInbox({
               <span className="font-medium">{a.patientName}</span>
               {a.detail && <> · {a.detail}</>}
             </p>
-            <Button
-              size="sm"
-              variant="outline"
-              className="mt-2"
-              disabled={!a.patientId}
-              onClick={() => a.patientId && onOpen(a.patientId)}
-            >
-              {copy.action}
-            </Button>
+            {a.kind === "no_pickup" && a.patientId ? (
+              <Button
+                size="sm"
+                variant="outline"
+                className="mt-2"
+                nativeButton={false}
+                render={<a href={`/patient/${a.patientId}`} target="_blank" rel="noopener noreferrer" />}
+                data-testid={`alert-action-${a.kind}`}
+              >
+                {copy.action} <ExternalLink aria-hidden />
+                <span className="sr-only">(opens the patient portal in a new tab)</span>
+              </Button>
+            ) : (
+              <Button
+                size="sm"
+                variant="outline"
+                className="mt-2"
+                disabled={!a.patientId}
+                onClick={() => onAction(a)}
+                data-testid={`alert-action-${a.kind}`}
+              >
+                {copy.action}
+              </Button>
+            )}
           </li>
         );
       })}

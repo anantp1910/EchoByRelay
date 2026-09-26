@@ -14,7 +14,8 @@ import type {
   Patient,
   PrescriptionStatus,
 } from "@/lib/db/types";
-import { ANA_ID, DEMO_DRUG, MARIA_ID, MARIA_PLAN_ID } from "@/lib/demo/constants";
+import type { PaRes } from "@/lib/api/contracts";
+import { ANA_ID, DEMO_DRUG, DEMO_PRESCRIBER, MARIA_ID, MARIA_PLAN_ID } from "@/lib/demo/constants";
 
 import { PROGRAM } from "./labels";
 
@@ -156,12 +157,58 @@ export const FIXTURE_MARIA_EVENTS: AgentEvent[] = [
   event(14, {
     agent: "paDrafter",
     status: "needs_approval",
-    title: "PA letter drafted — review and approve",
-    detail: "4 citations from the FDA label. Submit to the payer on your approval.",
-    simulated: false,
-    data: { action: "submit_pa", rxId: FIXTURE_MARIA_RX_ID, citations: 4 },
+    title: "PA ready for review",
+    detail: "Drafted from the FDA label with 3 citation(s) · template.",
+    simulated: true,
+    data: { action: "submit_pa", rxId: FIXTURE_MARIA_RX_ID, paRequestId: fx(401) },
   }),
 ];
+
+// ---------------------------------------------------------------------------
+// PA letter (offline stand-in for GET /api/pa/[rxId]; same shape as the drafter)
+// ---------------------------------------------------------------------------
+
+const DAILYMED_JARDIANCE =
+  "https://dailymed.nlm.nih.gov/dailymed/drugInfo.cfm?setid=1782b947-4a72-4feb-a488-1469d9af82bd";
+
+export const FIXTURE_PA: PaRes = {
+  status: "draft",
+  letterMd: `## Prior Authorization Request
+
+**To:** Peach State Health Plus (demo) — Pharmacy Benefits, Prior Authorization Department
+**Re:** ${FIXTURE_MARIA.name} · ${DEMO_DRUG.name} ${DEMO_DRUG.dose} daily
+
+**Diagnoses:** type 2 diabetes mellitus; heart failure
+
+**Clinical Rationale:** ${DEMO_DRUG.name} is indicated as an adjunct to diet and exercise to improve glycemic control in adults with type 2 diabetes mellitus [1]. It is also indicated to reduce the risk of cardiovascular death and hospitalization for heart failure in adults with heart failure [2]. The prescribed regimen matches the FDA-approved dosing [3].
+
+**Request:** Please approve ${DEMO_DRUG.name} ${DEMO_DRUG.dose} daily for continued coverage without interruption.
+
+**Sincerely,**
+
+${DEMO_PRESCRIBER.name}
+${DEMO_PRESCRIBER.clinic}, ${DEMO_PRESCRIBER.city}`,
+  citations: [
+    {
+      n: 1,
+      section: "Indications and Usage",
+      quote: "as an adjunct to diet and exercise to improve glycemic control in adults and pediatric patients aged 10 years and older with type 2 diabetes mellitus.",
+      url: DAILYMED_JARDIANCE,
+    },
+    {
+      n: 2,
+      section: "Indications and Usage",
+      quote: "to reduce the risk of cardiovascular death and hospitalization for heart failure in adults with heart failure.",
+      url: DAILYMED_JARDIANCE,
+    },
+    {
+      n: 3,
+      section: "Dosage and Administration",
+      quote: "Recommended dose is 10 mg once daily in the morning, taken with or without food",
+      url: DAILYMED_JARDIANCE,
+    },
+  ],
+};
 
 // ---------------------------------------------------------------------------
 // Alerts, messages

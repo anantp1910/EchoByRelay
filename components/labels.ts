@@ -3,7 +3,7 @@
 // without a label here is a compile error.
 
 import type { RouterProgramLabel } from "@/lib/api/contracts";
-import type { AlertKind, AlertSeverity } from "@/lib/db/types";
+import type { AlertKind, AlertSeverity, PaStatus } from "@/lib/db/types";
 
 import type { Tone } from "./StatusPill";
 
@@ -32,3 +32,10 @@ export const ALERT: Record<AlertKind, { title: string; action: string; tone: Ton
 export function alertTone(kind: AlertKind, severity: AlertSeverity): Tone {
   return severity === "critical" ? "blocked" : ALERT[kind].tone;
 }
+
+export const PA_STATUS: Record<PaStatus, { label: string; tone: Tone }> = {
+  draft: { label: "Draft", tone: "pending" },
+  submitted: { label: "Submitted to payer", tone: "pending" },
+  approved: { label: "PA approved", tone: "ok" },
+  denied: { label: "PA denied", tone: "blocked" },
+};

@@ -47,6 +47,10 @@ interface VoiceButtonProps {
   disabled?: boolean;
   /** Pre-fills the typed fallback. Defaults to the demo sentence. */
   suggestion?: string;
+  /** sm = compact mic for drawers: no text fallback, hidden when speech is unsupported. */
+  size?: "lg" | "sm";
+  /** Idle hint under the mic. */
+  hint?: string;
   className?: string;
 }
 
@@ -56,9 +60,12 @@ export function VoiceButton({
   lang = "en-US",
   disabled = false,
   suggestion = DEMO_PHRASE,
+  size = "lg",
+  hint,
   className,
 }: VoiceButtonProps) {
   const supported = useSpeechSupported();
+  const compact = size === "sm";
   const [phase, setPhase] = useState<Phase>("idle");
   const [transcript, setTranscript] = useState("");
   const [typing, setTyping] = useState(false);
@@ -68,7 +75,7 @@ export function VoiceButton({
   const finalText = useRef("");
   const inputId = useId();
 
-  const showTextBox = typing || !supported;
+  const showTextBox = !compact && (typing || !supported);
 
   const submit = useCallback(
     async (text: string) => {
@@ -137,8 +144,10 @@ export function VoiceButton({
   const listening = phase === "listening";
   const processing = phase === "processing";
 
+  if (compact && !supported) return null;
+
   return (
-    <div className={cn("flex flex-col items-center gap-3", className)}>
+    <div className={cn("flex flex-col items-center", compact ? "gap-1.5" : "gap-3", className)}>
       {!showTextBox && (
         <>
           <button
@@ -164,7 +173,8 @@ export function VoiceButton({
             aria-label={listening ? "Listening. Release to send." : "Hold to talk"}
             data-testid="voice-button"
             className={cn(
-              "relative grid size-24 touch-none place-items-center rounded-full bg-primary text-primary-foreground shadow-lg transition-transform duration-150 select-none",
+              "relative grid touch-none place-items-center rounded-full bg-primary text-primary-foreground shadow-lg transition-transform duration-150 select-none",
+              compact ? "size-12" : "size-24",
               "focus-visible:ring-4 focus-visible:ring-ring/40 disabled:opacity-60",
               listening && "scale-105"
             )}
@@ -179,9 +189,9 @@ export function VoiceButton({
               />
             )}
             {processing ? (
-              <LoaderCircle aria-hidden className="size-9 animate-spin motion-reduce:animate-none" />
+              <LoaderCircle aria-hidden className={cn(compact ? "size-5" : "size-9", "animate-spin motion-reduce:animate-none")} />
             ) : (
-              <Mic aria-hidden className="size-9" />
+              <Mic aria-hidden className={compact ? "size-5" : "size-9"} />
             )}
           </button>
 
@@ -198,7 +208,7 @@ export function VoiceButton({
               </span>
             ) : (
               <span className="text-sm text-muted-foreground">
-                {processing ? "Sending to Relay…" : "Hold to talk · Space or Enter works too"}
+                {processing ? "Sending to Relay…" : (hint ?? "Hold to talk · Space or Enter works too")}
               </span>
             )}
           </div>
@@ -213,7 +223,7 @@ export function VoiceButton({
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0 }}
             aria-live="polite"
-            className="min-h-6 max-w-md text-center text-base text-foreground"
+            className={cn("min-h-6 max-w-md text-center text-foreground", compact ? "text-sm" : "text-base")}
           >
             {transcript ? `“${transcript}”` : <span className="text-muted-foreground">Listening…</span>}
           </motion.p>
@@ -253,7 +263,7 @@ export function VoiceButton({
         </form>
       ) : null}
 
-      {supported && (
+      {supported && !compact && (
         <Button variant="link" size="sm" onClick={() => setTyping((t) => !t)} className="text-muted-foreground">
           {typing ? (
             <>
@@ -266,7 +276,7 @@ export function VoiceButton({
           )}
         </Button>
       )}
-      {!supported && (
+      {!supported && !compact && (
         <p className="text-xs text-muted-foreground">Voice isn&apos;t available in this browser, so type the order.</p>
       )}
     </div>
