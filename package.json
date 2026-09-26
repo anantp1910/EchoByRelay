@@ -10,7 +10,8 @@
     "typecheck": "tsc --noEmit",
     "demo:reset": "tsx scripts/reset.ts",
     "db:check": "tsx scripts/db-check.ts",
-    "smoke": "tsx scripts/smoke.ts"
+    "smoke": "tsx scripts/smoke.ts",
+    "test:intake": "tsx scripts/intake-cases.ts"
   },
   "dependencies": {
     "@base-ui/react": "^1.8.0",

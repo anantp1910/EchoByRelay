@@ -1,19 +1,24 @@
-// STUB — replaced in A2..A6.
+// Intake route — Phase 2 (replaces the A1.5 stub).
 //
 // POST /api/intake  { patientId, transcript } -> { rxId }
 //
-// Creates a demo prescription (if the DB is available) and seeds three
-// simulated agent_events so Person B's timeline + approval card have data:
-//   1. intake   "done"
-//   2. coverage "done"           ("PA required · $480 copay")
-//   3. router   "needs_approval" (data: { action:"enroll", program:"bridge", rxId })
-// If Supabase env vars are missing, it skips all DB writes and still returns a
-// valid { rxId } (a random UUID) so the app works before keys arrive.
+// Validates the contract, creates the prescription, and kicks off the
+// orchestrator via next/server `after()` so the agent chain runs AFTER the
+// response is sent — the client gets { rxId } immediately. maxDuration gives
+// after() room on Vercel. Response shape is unchanged from the stub.
 
+import { after } from "next/server";
 import type { NextRequest } from "next/server";
 
 import { IntakeReqSchema, errorResponse, jsonResponse } from "@/lib/api/contracts";
-import { createStubPrescription, writeStubEvents } from "@/lib/api/stub-events";
+
+export const maxDuration = 60;
+
+function hasServerEnv(): boolean {
+  return Boolean(
+    process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.SUPABASE_SERVICE_ROLE_KEY
+  );
+}
 
 export async function POST(request: NextRequest): Promise<Response> {
   let raw: unknown;
@@ -27,43 +32,37 @@ export async function POST(request: NextRequest): Promise<Response> {
   if (!parsed.success) {
     return errorResponse("validation_error", parsed.error.message);
   }
-  const { patientId } = parsed.data;
+  const { patientId, transcript } = parsed.data;
 
-  // Real rx id if the DB is up; otherwise a throwaway id so the response is valid.
-  const createdRxId = await createStubPrescription(patientId);
-  const rxId = createdRxId ?? crypto.randomUUID();
-
-  // Only write events when a real prescription row exists (agent_events.rx_id
-  // FKs to prescriptions). writeStubEvents itself also no-ops without env.
-  if (createdRxId) {
-    await writeStubEvents([
-      {
-        rx_id: rxId,
-        patient_id: patientId,
-        agent: "intake",
-        status: "done",
-        title: "Prescription understood",
-        detail: "Jardiance 10 mg once daily — type 2 diabetes with heart failure",
-      },
-      {
-        rx_id: rxId,
-        patient_id: patientId,
-        agent: "coverage",
-        status: "done",
-        title: "Coverage checked",
-        detail: "PA required · $480 copay",
-      },
-      {
-        rx_id: rxId,
-        patient_id: patientId,
-        agent: "router",
-        status: "needs_approval",
-        title: "Recommended: Medvantx Bridge",
-        detail: "Already on therapy; new plan requires prior authorization.",
-        data: { action: "enroll", program: "bridge", rxId },
-      },
-    ]);
+  // Works before keys arrive: return a valid id and skip orchestration.
+  if (!hasServerEnv()) {
+    return jsonResponse({ rxId: crypto.randomUUID() });
   }
 
-  return jsonResponse({ rxId });
+  // Dynamic import so a missing key never throws at module load.
+  const { createPrescription, findRecentPrescription, run } = await import(
+    "@/lib/agents/orchestrator"
+  );
+
+  try {
+    // Double-submit guard: reuse a very recent in-flight prescription instead
+    // of creating (and re-running the chain on) a duplicate.
+    const existing = await findRecentPrescription(patientId, 30);
+    const rxId = existing ?? (await createPrescription(patientId));
+
+    if (!existing) {
+      after(async () => {
+        try {
+          await run(patientId, transcript, { rxId });
+        } catch (err) {
+          console.error("[intake] orchestrator run failed:", err);
+        }
+      });
+    }
+
+    return jsonResponse({ rxId });
+  } catch (err) {
+    console.error("[intake] failed to start:", err);
+    return errorResponse("internal", "Could not start intake");
+  }
 }
