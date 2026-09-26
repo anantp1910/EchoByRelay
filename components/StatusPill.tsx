@@ -31,7 +31,7 @@ const STATUS: Record<PillStatus, { tone: Tone; label: string }> = {
   running: { tone: "pending", label: "Running" },
   done: { tone: "ok", label: "Done" },
   blocked: { tone: "blocked", label: "Blocked" },
-  needs_approval: { tone: "risk", label: "Needs approval" },
+  needs_approval: { tone: "pending", label: "Needs approval" }, // amber is only for at-risk patients
   approved: { tone: "ok", label: "Approved" },
   rejected: { tone: "blocked", label: "Rejected" },
 };
@@ -69,7 +69,8 @@ interface StatusPillProps {
 /** Colored status chip. Always icon + text, so color is never the only signal. */
 export function StatusPill({ status, label, size = "sm", className }: StatusPillProps) {
   const { tone, label: defaultLabel } = STATUS[status];
-  const Icon = status === "running" ? LoaderCircle : TONE_ICON[tone];
+  // needs_approval shares blue with other pending states; its own icon keeps it distinct.
+  const Icon = status === "running" ? LoaderCircle : status === "needs_approval" ? CircleAlert : TONE_ICON[tone];
   return (
     <span
       data-status={status}

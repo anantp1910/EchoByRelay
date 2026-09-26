@@ -51,6 +51,23 @@ const clock = (iso: string) => iso.slice(11, 19);
 
 export type Decision = "approve" | "reject";
 
+/**
+ * Agents may log "running" and the result as separate rows instead of updating
+ * one row. Drop a "running" step once the same agent has a later event for the
+ * same prescription, so its spinner never hangs. Expects created_at order.
+ */
+export function collapseSuperseded(events: AgentEvent[]): AgentEvent[] {
+  const later = new Set<string>();
+  const keep: AgentEvent[] = [];
+  for (let i = events.length - 1; i >= 0; i--) {
+    const e = events[i];
+    const key = `${e.agent}|${e.rx_id ?? ""}`;
+    if (!(e.status === "running" && later.has(key))) keep.push(e);
+    later.add(key);
+  }
+  return keep.reverse();
+}
+
 interface AgentTimelineProps {
   events: AgentEvent[];
   state?: "loading" | "ready" | "error";
@@ -79,6 +96,8 @@ export function AgentTimeline({
   emptyHint = "Steps appear here as soon as a prescription starts moving.",
   className,
 }: AgentTimelineProps) {
+  const steps = collapseSuperseded(events);
+
   if (state === "loading") {
     return (
       <div className={cn("space-y-3", className)} aria-busy="true" aria-label="Loading agent activity">
@@ -118,7 +137,7 @@ export function AgentTimeline({
     );
   }
 
-  if (events.length === 0) {
+  if (steps.length === 0) {
     return (
       <div
         className={cn(
@@ -136,11 +155,11 @@ export function AgentTimeline({
   return (
     <ol className={cn("relative", className)} aria-live="polite" aria-label="Agent activity">
       <AnimatePresence initial={false}>
-        {events.map((event, i) => (
+        {steps.map((event, i) => (
           <TimelineStep
             key={event.id}
             event={event}
-            last={i === events.length - 1}
+            last={i === steps.length - 1}
             density={density}
             onDecision={readOnly ? undefined : onDecision}
             readOnly={readOnly}
@@ -165,7 +184,8 @@ function StatusNode({ status, icon: Icon }: { status: AgentEventStatus; icon: Lu
     <span
       className={cn(
         "relative z-10 grid size-8 shrink-0 place-items-center rounded-full transition-colors duration-200",
-        NODE[tone]
+        // Solid blue (vs. the soft "running" node) so a step waiting on a human stands out.
+        status === "needs_approval" ? "bg-pending text-white dark:text-[#062326]" : NODE[tone]
       )}
     >
       <AnimatePresence mode="popLayout" initial={false}>
@@ -283,8 +303,8 @@ function ApprovalCard({
       transition={{ duration: 0.2 }}
       className="overflow-hidden"
     >
-      <div className="mt-2 rounded-lg border border-risk/40 bg-risk-soft p-3">
-        <p className="text-sm font-medium text-risk-strong">
+      <div className="mt-2 rounded-lg border border-pending/40 bg-pending-soft p-3">
+        <p className="text-sm font-medium text-pending-strong">
           {readOnly || !onDecision ? "Waiting for the doctor's approval" : "Your approval is needed"}
         </p>
         {!readOnly && onDecision && (
