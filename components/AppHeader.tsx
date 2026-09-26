@@ -4,6 +4,7 @@ import { Moon, Sun } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useTheme } from "next-themes";
+import { useSyncExternalStore } from "react";
 
 import { Button } from "@/components/ui/button";
 import { MARIA_ID } from "@/lib/demo/constants";
@@ -31,16 +32,23 @@ export function RelayMark({ className }: { className?: string }) {
   );
 }
 
+// False during SSR and hydration, true after mount — so theme-dependent markup
+// matches the server HTML on the first client render.
+const noopSubscribe = () => () => {};
+const useMounted = () => useSyncExternalStore(noopSubscribe, () => true, () => false);
+
 export function ThemeToggle() {
   const { resolvedTheme, setTheme } = useTheme();
-  const dark = resolvedTheme === "dark";
+  const mounted = useMounted();
+  const dark = mounted && resolvedTheme === "dark";
   return (
     <Button
       variant="ghost"
       size="icon"
       onClick={() => setTheme(dark ? "light" : "dark")}
-      aria-label={dark ? "Switch to light mode" : "Switch to dark mode"}
+      aria-label={mounted ? (dark ? "Switch to light mode" : "Switch to dark mode") : "Toggle color theme"}
     >
+      {/* Icons swap via the .dark class, so their markup is identical on server and client. */}
       <Sun aria-hidden className="hidden dark:block" />
       <Moon aria-hidden className="dark:hidden" />
     </Button>
