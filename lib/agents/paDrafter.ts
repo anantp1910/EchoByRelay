@@ -5,15 +5,17 @@ import { z } from "zod";
 import { db } from "@/lib/db/server";
 import { jsonCall } from "@/lib/llm/grok";
 import { getJardianceLabel, type LabelData } from "@/lib/data/openfda";
+import { getPlan, type PlanInfo } from "@/lib/mocks/payer";
 import { DEMO_PRESCRIBER } from "@/lib/demo/constants";
 import type { Citation } from "@/lib/api/contracts";
 import type { AgentContext } from "./context";
 
-// PA drafter. Builds a professional, cited prior-authorization letter:
-// patient facts come ONLY from the DB; clinical claims come ONLY from the FDA
-// label and are cited [n] with >= 8-word verbatim quotes. Validates the
-// citations; retries the LLM once; then falls back to a deterministic template
-// with the same structure (the demo never hangs).
+// PA drafter. The AI writes ONLY the cited Clinical Rationale (clinical claims
+// from the FDA label, each cited [n] with a >=8-word verbatim quote). Everything
+// else — header, diagnoses, continuity of therapy, request, signature — is
+// assembled deterministically from DB facts, so patient-facing prose never
+// depends on the model. Validate citations; retry the LLM once; else a
+// deterministic template rationale (the demo never hangs).
 
 type PrescriptionFacts = {
   drug: string;
@@ -24,11 +26,9 @@ type PrescriptionFacts = {
 };
 type PatientFacts = { name: string; conditions: string[]; planId: string | null };
 
-const PaLetterLlmSchema = z.object({
-  letterMd: z.string().min(1),
-  citations: z.array(
-    z.object({ n: z.number().int(), section: z.string(), quote: z.string() })
-  ),
+const PaRationaleLlmSchema = z.object({
+  rationaleMd: z.string().min(1),
+  citations: z.array(z.object({ n: z.number().int(), section: z.string(), quote: z.string() })),
 });
 
 const SECTION_KEYS = [
@@ -81,19 +81,19 @@ function displayDate(): string {
 }
 
 /**
- * Validate + normalize citations. Returns corrected Citation[] (section fixed to
- * where the quote is actually found, url injected) or null. Rules: refs match;
- * every citation used; each quote >= 8 words and a whitespace-normalized,
- * case-sensitive exact substring of a label section.
+ * Validate + normalize citations against `rationaleMd`. Returns corrected
+ * Citation[] (section fixed to where the quote is actually found, url injected)
+ * or null. Rules: refs match; every citation used; each quote >= 8 words and a
+ * whitespace-normalized, case-sensitive exact substring of a label section.
  */
 function validateAndCorrect(
-  letterMd: string,
+  rationaleMd: string,
   citations: { n: number; section: string; quote: string }[],
   label: LabelData
 ): Citation[] | null {
   if (citations.length === 0) return null;
 
-  const used = new Set([...letterMd.matchAll(/\[(\d+)\]/g)].map((m) => Number(m[1])));
+  const used = new Set([...rationaleMd.matchAll(/\[(\d+)\]/g)].map((m) => Number(m[1])));
   const defined = new Set(citations.map((c) => c.n));
   for (const n of used) if (!defined.has(n)) return null;
   for (const n of defined) if (!used.has(n)) return null;
@@ -124,42 +124,24 @@ function validateAndCorrect(
   return corrected;
 }
 
-const SYSTEM_PROMPT = `You draft a professional prior authorization letter for a prescriber, in Markdown.
-STRICT RULES:
-- Use ONLY the provided letter facts for patient/prescriber details; never invent facts.
-- Every clinical claim about the medication must come ONLY from the provided FDA label sections and MUST end with a citation marker like [1].
-- Each citation's "quote" MUST be copied VERBATIM (exact characters) from a label section and be at least 8 words long.
-- The patient has TWO diagnoses. In the Clinical Rationale, cite BOTH: (a) the glycemic-control / type 2 diabetes indication AND (b) the heart-failure indication — each as its OWN citation quoting the exact matching sentence from Indications and Usage. Also cite the dosing from Dosage and Administration. Each clinical claim cites the sentence that supports it.
-- Structure the letter EXACTLY: a header with "**To:**", "**Date:**", and "**Re:**" (patient name · plan id · drug/dose/frequency), then sections "**Diagnoses:**", "**Clinical Rationale:**" (with citations), "**Continuity of Therapy:**", "**Request:**", and a prescriber signature block (name, specialty, clinic, city, NPI).
-- Continuity of Therapy must contain ONLY the provided facts (already established on therapy; the plan requires prior authorization; the named supply is in place). NO uncited clinical claims there.
-- Return ONLY JSON: {"letterMd":"<markdown>","citations":[{"n":1,"section":"<section name>","quote":"<verbatim label text, >= 8 words>"}]}.
-- Every [n] in letterMd must have a matching citation, and every citation must be used. Do NOT include URLs.`;
+const SYSTEM_PROMPT = `You write ONLY the "Clinical Rationale" of a prior authorization letter, in Markdown, plus its citations.
+RULES:
+- Every clinical claim about the medication comes ONLY from the provided FDA label sections and MUST end with a citation marker like [1].
+- Each citation "quote" is copied VERBATIM (exact characters) from a label section and is at least 8 words long.
+- The patient has TWO diagnoses. Cite BOTH: (a) the glycemic-control / type 2 diabetes indication AND (b) the heart-failure indication, each as its OWN citation quoting the exact matching sentence from Indications and Usage. Also cite the dosing from Dosage and Administration.
+- Write 2-4 sentences of clinical rationale ONLY. Do NOT write any header, greeting, diagnoses list, continuity language, request, or signature — those are added separately.
+- Return ONLY JSON: {"rationaleMd":"<sentences with [n] markers>","citations":[{"n":1,"section":"<section name>","quote":"<verbatim label text, >= 8 words>"}]}.
+- Every [n] in rationaleMd has a matching citation, and every citation is used. No URLs.`;
 
 function capForPrompt(text: string, max = 3000): string {
   return text.length <= max ? text : `${text.slice(0, max)} …`;
 }
 
-function buildUserPrompt(
-  rx: PrescriptionFacts,
-  patient: PatientFacts,
-  label: LabelData,
-  date: string
-): string {
-  const med = [rx.drug, rx.dose, rx.frequency].filter(Boolean).join(" ");
+function buildUserPrompt(rx: PrescriptionFacts, patient: PatientFacts, label: LabelData): string {
   const diagnoses = patient.conditions.length ? patient.conditions.join("; ") : rx.indication ?? "(on file)";
-  const prog = programLabel(rx.program);
-  const prescriber = `${DEMO_PRESCRIBER.name}, ${DEMO_PRESCRIBER.specialty}, ${DEMO_PRESCRIBER.clinic}, ${DEMO_PRESCRIBER.city}, NPI ${DEMO_PRESCRIBER.npi} (demo)`;
   return [
-    `Letter facts (use verbatim; do not invent):`,
-    `To: Pharmacy Benefits — Prior Authorization Department`,
-    `Date: ${date}`,
-    `Patient: ${patient.name}`,
-    `Plan ID: ${patient.planId ?? "(on file)"}`,
-    `Medication: ${med}`,
-    `Diagnoses: ${diagnoses}`,
-    `Already established on therapy: yes`,
-    `Access program in place: ${prog.supply ? prog.label : "(none)"}`,
-    `Prescriber: ${prescriber}`,
+    `Medication: ${rx.drug}`,
+    `Patient diagnoses (cite the label indication for each): ${diagnoses}`,
     ``,
     `FDA label sections (quote VERBATIM; each quote at least 8 words):`,
     ``,
@@ -204,24 +186,17 @@ function extractQuote(sectionNorm: string, minWords = 14, maxWords = 42): string
 
 const cap = (s: string): string => (s ? s[0].toUpperCase() + s.slice(1) : s);
 
-/** Deterministic, professional letter that quotes the label verbatim, matching the LLM structure. */
-function templateLetter(
+/** Deterministic Clinical Rationale that quotes the label verbatim (both indications + dosing). */
+function templateRationale(
   rx: PrescriptionFacts,
-  patient: PatientFacts,
-  label: LabelData,
-  date: string
-): { letterMd: string; citations: Citation[] } {
-  const med = [rx.drug, rx.dose, rx.frequency].filter(Boolean).join(" ");
-  const diagnoses = patient.conditions.length ? patient.conditions.join("; ") : rx.indication ?? "(on file)";
-  const prog = programLabel(rx.program);
-
+  label: LabelData
+): { rationaleMd: string; citations: Citation[] } {
   const indNorm = normWs(label.sections.indications_and_usage);
   const dosNorm = normWs(label.sections.dosage_and_administration);
   const glycemic = findSentence(indNorm, ["glycemic", "type 2 diabetes"]);
   const heartFailure = findSentence(indNorm, ["heart failure"]);
   const dosing = findSentence(dosNorm, ["10 mg", "once daily", "recommended"]) || extractQuote(dosNorm);
 
-  // Professional claim sentences, each backed by a verbatim label quote.
   const claims: { text: string; section: string; quote: string }[] = [];
   if (glycemic) {
     claims.push({
@@ -253,27 +228,42 @@ function templateLetter(
   }
 
   const citations: Citation[] = [];
-  const rationale: string[] = [];
+  const sentences: string[] = [];
   claims.forEach((c, i) => {
     const n = i + 1;
     citations.push({ n, section: c.section, quote: c.quote, url: label.citationUrl });
-    rationale.push(`${cap(c.text)} [${n}].`);
+    sentences.push(`${cap(c.text)} [${n}].`);
   });
 
-  const continuity = `${patient.name} is currently established on ${med}; the plan requires prior authorization for continued coverage.${
+  return { rationaleMd: sentences.join(" "), citations };
+}
+
+/** Assemble the full letter around a (validated) Clinical Rationale, from DB facts only. */
+function assembleLetter(
+  rationaleMd: string,
+  rx: PrescriptionFacts,
+  patient: PatientFacts,
+  plan: PlanInfo,
+  date: string
+): string {
+  const med = [rx.drug, rx.dose, rx.frequency].filter(Boolean).join(" ");
+  const diagnoses = patient.conditions.length ? patient.conditions.join("; ") : rx.indication ?? "(on file)";
+  const prog = programLabel(rx.program);
+
+  const continuity = `${patient.name} is currently established on ${med}. The new plan requires prior authorization for this medication.${
     prog.supply ? ` A ${prog.label} supply is in place so therapy is not interrupted while this request is reviewed.` : ""
   }`;
 
-  const letterMd = [
+  return [
     `## Prior Authorization Request`,
     ``,
-    `**To:** Pharmacy Benefits — Prior Authorization Department`,
+    `**To:** ${plan.planName} — Pharmacy Benefits, Prior Authorization Department`,
     `**Date:** ${date}`,
-    `**Re:** ${patient.name} · Plan ID ${patient.planId ?? "(on file)"} · ${med}`,
+    `**Re:** ${patient.name} · ${plan.planName} · Member ${plan.memberId} · ${med}`,
     ``,
     `**Diagnoses:** ${diagnoses}`,
     ``,
-    `**Clinical Rationale:** ${rationale.join(" ")}`,
+    `**Clinical Rationale:** ${rationaleMd}`,
     ``,
     `**Continuity of Therapy:** ${continuity}`,
     ``,
@@ -286,34 +276,30 @@ function templateLetter(
     `${DEMO_PRESCRIBER.clinic}, ${DEMO_PRESCRIBER.city}`,
     `NPI ${DEMO_PRESCRIBER.npi} (demo)`,
   ].join("\n");
-
-  return { letterMd, citations };
 }
 
-async function draftLetter(
+async function draftRationale(
   rx: PrescriptionFacts,
   patient: PatientFacts,
-  label: LabelData,
-  date: string
-): Promise<{ letterMd: string; citations: Citation[]; source: "ai" | "template" }> {
+  label: LabelData
+): Promise<{ rationaleMd: string; citations: Citation[]; source: "ai" | "template" }> {
   const messages = [
     { role: "system" as const, content: SYSTEM_PROMPT },
-    { role: "user" as const, content: buildUserPrompt(rx, patient, label, date) },
+    { role: "user" as const, content: buildUserPrompt(rx, patient, label) },
   ];
 
-  // Fast model, then retry once. (Reasoning model takes ~88s on this prompt —
-  // infeasible within maxDuration=60.) Any failure or failed validation falls
-  // through to the template.
+  // Fast model, then retry once. (Reasoning model takes ~88s here — infeasible
+  // within maxDuration=60.) Any failure or failed validation -> template.
   for (let attempt = 1; attempt <= 2; attempt++) {
     try {
-      const llm = await jsonCall(PaLetterLlmSchema, messages, {
+      const llm = await jsonCall(PaRationaleLlmSchema, messages, {
         model: "fast",
         fixtureKey: "paLetter",
         timeoutMs: 20_000,
       });
-      const corrected = validateAndCorrect(llm.letterMd, llm.citations, label);
+      const corrected = validateAndCorrect(llm.rationaleMd, llm.citations, label);
       if (corrected) {
-        return { letterMd: llm.letterMd, citations: corrected, source: "ai" };
+        return { rationaleMd: llm.rationaleMd, citations: corrected, source: "ai" };
       }
       console.warn(`[paDrafter] citation validation failed on attempt ${attempt}`);
     } catch (err) {
@@ -321,11 +307,12 @@ async function draftLetter(
     }
   }
 
-  return { ...templateLetter(rx, patient, label, date), source: "template" };
+  return { ...templateRationale(rx, label), source: "template" };
 }
 
 /**
- * Draft the PA for ctx.rxId: load facts + label, draft (AI or template), save a
+ * Draft the PA for ctx.rxId: load facts + plan + label, draft the cited
+ * rationale (AI or template), assemble the full letter deterministically, save a
  * pa_requests row (status draft), and pause for approval. One step:
  * running -> needsApproval (data.action "submit_pa").
  */
@@ -364,9 +351,11 @@ export async function paDrafter(ctx: AgentContext): Promise<void> {
       conditions: patRow.conditions ?? [],
       planId: patRow.plan_id ?? null,
     };
+    const plan = getPlan(patient.planId);
 
     const label = await getJardianceLabel();
-    const { letterMd, citations, source } = await draftLetter(rx, patient, label, displayDate());
+    const { rationaleMd, citations, source } = await draftRationale(rx, patient, label);
+    const letterMd = assembleLetter(rationaleMd, rx, patient, plan, displayDate());
 
     const { data: paRow, error: paErr } = await db
       .from("pa_requests")
@@ -379,7 +368,7 @@ export async function paDrafter(ctx: AgentContext): Promise<void> {
     const simulated = source === "template" || label.source === "fixture";
     await step.needsApproval(
       "PA ready for review",
-      `Drafted from the FDA label with ${citations.length} citation(s) · ${source === "ai" ? "AI-drafted" : "template"}.`,
+      `Drafted from the FDA label with ${citations.length} citation(s) · ${source === "ai" ? "AI rationale" : "template"}.`,
       { action: "submit_pa", paRequestId: (paRow as { id: string }).id, rxId: ctx.rxId, source, draftMs },
       { simulated }
     );

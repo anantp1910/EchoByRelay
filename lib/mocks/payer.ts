@@ -14,6 +14,19 @@ export interface CoverageQuote {
   tier: number;
 }
 
+export interface PlanInfo {
+  planName: string;
+  memberId: string;
+}
+
+/** Plan name + member ID for a patient's plan (simulated; shapes mirror a real eligibility lookup). */
+export function getPlan(planId: string | null): PlanInfo {
+  if (planId === MARIA_PLAN_ID) {
+    return { planName: "Peach State Health Plus (demo)", memberId: "PSH-4471-0921 (demo)" };
+  }
+  return { planName: "Commercial PBM (demo)", memberId: "MBR-0000-0000 (demo)" };
+}
+
 /** Coverage for a patient's plan. Maria's plan requires PA at a $480 / tier-3 copay. */
 // eslint-disable-next-line @typescript-eslint/no-unused-vars -- drug mirrors the real API shape
 export function checkCoverage(patient: Pick<Patient, "plan_id">, drug: string): CoverageQuote {

@@ -98,6 +98,7 @@ async function main(): Promise<void> {
   const pa = (await paRes.json()) as { status: string; letterMd: string; citations: { n: number; section: string; quote: string; url: string }[] };
   console.log(`\n===== PA (${paRes.status}) status=${pa.status} =====`);
   console.log(pa.letterMd);
+  console.log(`\nprint page: ${BASE}/api/pa/${rxId}/print`);
   console.log(`\n----- citations (${pa.citations.length}) -----`);
   for (const c of pa.citations) {
     console.log(`  [${c.n}] ${c.section}: "${c.quote.slice(0, 60)}${c.quote.length > 60 ? "…" : ""}"`);
