@@ -33,6 +33,7 @@ create table if not exists patients (
   plan_id        uuid,
   income_band    text check (income_band in ('low', 'mid', 'above_pap')),
   on_drug_before boolean not null default false,
+  conditions     text[] not null default '{}',
   is_seed        boolean not null default false,
   created_at     timestamptz not null default now()
 );
@@ -140,7 +141,7 @@ create table if not exists alerts (
   id         uuid primary key default gen_random_uuid(),
   rx_id      uuid references prescriptions(id) on delete cascade,
   kind       text not null
-               check (kind in ('bridge_cliff', 'pa_denied', 'no_pickup')),
+               check (kind in ('bridge_cliff', 'pa_denied', 'no_pickup', 'escalation')),
   severity   text not null default 'warning'
                check (severity in ('info', 'warning', 'critical')),
   resolved   boolean not null default false,
@@ -192,6 +193,37 @@ create table if not exists demo_state (
   created_at timestamptz not null default now(),
   constraint demo_state_singleton check (id = 1)
 );
+
+-- ============================================================================
+-- Migrations for existing databases (idempotent; new installs already match).
+-- ============================================================================
+
+-- A3: patients.conditions (used to backfill a prescription's indication from
+-- the patient's real diagnoses — never invented by the LLM).
+alter table patients add column if not exists conditions text[] not null default '{}';
+
+-- A3: allow the 'escalation' alert kind (router "escalate" -> doctor inbox).
+alter table alerts drop constraint if exists alerts_kind_check;
+alter table alerts add constraint alerts_kind_check
+  check (kind in ('bridge_cliff', 'pa_denied', 'no_pickup', 'escalation'));
+
+-- A3.1: one row per step (running -> done|blocked|needs_approval). Realtime now
+-- delivers UPDATEs, not just INSERTs. REPLICA IDENTITY FULL makes the full row
+-- available so RLS can be evaluated for anon subscribers on UPDATE/DELETE and
+-- the complete new row is delivered in the change payload. Applied to every
+-- table in the supabase_realtime publication (idempotent — re-running is a no-op).
+do $$
+declare
+  t text;
+begin
+  foreach t in array array[
+    'agent_events', 'prescriptions', 'alerts', 'messages',
+    'orders', 'enrollments', 'pa_requests', 'payments', 'demo_state'
+  ]
+  loop
+    execute format('alter table public.%I replica identity full', t);
+  end loop;
+end $$;
 
 -- ============================================================================
 -- Indexes

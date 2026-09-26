@@ -50,7 +50,7 @@ export type OrderStatus = (typeof ORDER_STATUSES)[number];
 export const PAYMENT_STATUSES = ["created", "succeeded", "failed"] as const;
 export type PaymentStatus = (typeof PAYMENT_STATUSES)[number];
 
-export const ALERT_KINDS = ["bridge_cliff", "pa_denied", "no_pickup"] as const;
+export const ALERT_KINDS = ["bridge_cliff", "pa_denied", "no_pickup", "escalation"] as const;
 export type AlertKind = (typeof ALERT_KINDS)[number];
 
 export const ALERT_SEVERITIES = ["info", "warning", "critical"] as const;
@@ -89,6 +89,7 @@ export interface Patient {
   plan_id: string | null;
   income_band: IncomeBand | null;
   on_drug_before: boolean;
+  conditions: string[];
   is_seed: boolean;
   created_at: string;
 }
@@ -203,6 +204,9 @@ export interface Message {
 }
 
 // Matches the agent_events columns exactly. rx_id nullable, patient_id required.
+//
+// One row per step. Subscribe to INSERT and UPDATE; a row moves
+//   running -> done | blocked | needs_approval -> approved | rejected.
 export interface AgentEvent {
   id: string;
   rx_id: string | null;

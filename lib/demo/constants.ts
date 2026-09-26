@@ -22,3 +22,13 @@ export const DEMO_DRUG = {
 // Jardiance; her new insurance requires prior authorization, so this is a
 // "continue therapy" case that routes to the Medvantx Bridge program.
 export const DEMO_PHRASE = `Continue Maria on ${DEMO_DRUG.name}, 10 mg daily`;
+
+// Fictional prescriber for the PA letter signature. NPI is a placeholder marked
+// as a demo value — NOT a real provider or NPI.
+export const DEMO_PRESCRIBER = {
+  name: "Dr. Ruth Calhoun, MD",
+  specialty: "Family Medicine",
+  clinic: "Early County Family Health",
+  city: "Blakely, GA",
+  npi: "0000000000",
+} as const;
