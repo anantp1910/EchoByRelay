@@ -4,12 +4,44 @@
 
 @custom-variant dark (&:is(.dark *));
 
+/*
+ * Relay design tokens.
+ *
+ * Brand + status palette (light):
+ *   teal #0E5E63 · ok #1E7F4A · risk #A86410 · block #B8322A · pending #2458C9
+ *   ink #12282B · muted #56696C · line #D3DEDF · bg #F4F7F7
+ *
+ * Status text on tinted pills uses the `-strong` shades: the base risk/ok
+ * colors fall under 4.5:1 on their own 12% tint. Every text pairing below
+ * is checked at >= 4.5:1 (WCAG AA), light and dark.
+ */
+
 @theme inline {
+  /* Relay tokens -> utilities: bg-teal, text-ok-strong, border-line, ... */
+  --color-teal: var(--teal);
+  --color-teal-soft: var(--teal-soft);
+  --color-ok: var(--ok);
+  --color-ok-strong: var(--ok-strong);
+  --color-ok-soft: var(--ok-soft);
+  --color-risk: var(--risk);
+  --color-risk-strong: var(--risk-strong);
+  --color-risk-soft: var(--risk-soft);
+  --color-block: var(--block);
+  --color-block-strong: var(--block-strong);
+  --color-block-soft: var(--block-soft);
+  --color-pending: var(--pending);
+  --color-pending-strong: var(--pending-strong);
+  --color-pending-soft: var(--pending-soft);
+  --color-ink: var(--ink);
+  --color-line: var(--line);
+  --color-surface: var(--surface);
+
+  --font-sans: var(--font-body);
+  --font-heading: var(--font-display);
+  --font-mono: var(--font-code);
+
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-sans);
-  --font-mono: var(--font-geist-mono);
-  --font-heading: var(--font-sans);
   --color-sidebar-ring: var(--sidebar-ring);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
@@ -49,72 +81,89 @@
 }
 
 :root {
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.145 0 0);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.145 0 0);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.145 0 0);
-  --primary: oklch(0.205 0 0);
-  --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.97 0 0);
-  --secondary-foreground: oklch(0.205 0 0);
-  --muted: oklch(0.97 0 0);
-  --muted-foreground: oklch(0.556 0 0);
-  --accent: oklch(0.97 0 0);
-  --accent-foreground: oklch(0.205 0 0);
-  --destructive: oklch(0.577 0.245 27.325);
-  --border: oklch(0.922 0 0);
-  --input: oklch(0.922 0 0);
-  --ring: oklch(0.708 0 0);
-  --chart-1: oklch(0.87 0 0);
-  --chart-2: oklch(0.556 0 0);
-  --chart-3: oklch(0.439 0 0);
-  --chart-4: oklch(0.371 0 0);
-  --chart-5: oklch(0.269 0 0);
-  --radius: 0.625rem;
-  --sidebar: oklch(0.985 0 0);
-  --sidebar-foreground: oklch(0.145 0 0);
-  --sidebar-primary: oklch(0.205 0 0);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.97 0 0);
-  --sidebar-accent-foreground: oklch(0.205 0 0);
-  --sidebar-border: oklch(0.922 0 0);
-  --sidebar-ring: oklch(0.708 0 0);
+  /* Relay palette */
+  --teal: #0e5e63;
+  --ok: #1e7f4a;
+  --ok-strong: #17683c;
+  --risk: #a86410;
+  --risk-strong: #8a510b;
+  --block: #b8322a;
+  --block-strong: #9c2a23;
+  --pending: #2458c9;
+  --pending-strong: #1e4aa8;
+  --ink: #12282b;
+  --muted-ink: #56696c;
+  --line: #d3dedf;
+  --bg: #f4f7f7;
+  --surface: #ffffff;
+
+  --teal-soft: color-mix(in srgb, var(--teal) 12%, var(--surface));
+  --ok-soft: color-mix(in srgb, var(--ok) 12%, var(--surface));
+  --risk-soft: color-mix(in srgb, var(--risk) 12%, var(--surface));
+  --block-soft: color-mix(in srgb, var(--block) 12%, var(--surface));
+  --pending-soft: color-mix(in srgb, var(--pending) 12%, var(--surface));
+
+  /* shadcn semantic tokens, pointed at the palette */
+  --background: var(--bg);
+  --foreground: var(--ink);
+  --card: var(--surface);
+  --card-foreground: var(--ink);
+  --popover: var(--surface);
+  --popover-foreground: var(--ink);
+  --primary: var(--teal);
+  --primary-foreground: #ffffff;
+  --secondary: #e6eeee;
+  --secondary-foreground: var(--ink);
+  --muted: #e9efef;
+  --muted-foreground: var(--muted-ink);
+  --accent: var(--teal-soft);
+  --accent-foreground: var(--teal);
+  --destructive: var(--block);
+  --border: var(--line);
+  --input: var(--line);
+  --ring: var(--teal);
+  --chart-1: var(--teal);
+  --chart-2: var(--pending);
+  --chart-3: var(--ok);
+  --chart-4: var(--risk);
+  --chart-5: var(--block);
+  --radius: 0.75rem;
+  --sidebar: var(--surface);
+  --sidebar-foreground: var(--ink);
+  --sidebar-primary: var(--teal);
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: var(--teal-soft);
+  --sidebar-accent-foreground: var(--teal);
+  --sidebar-border: var(--line);
+  --sidebar-ring: var(--teal);
 }
 
 .dark {
-  --background: oklch(0.145 0 0);
-  --foreground: oklch(0.985 0 0);
-  --card: oklch(0.205 0 0);
-  --card-foreground: oklch(0.985 0 0);
-  --popover: oklch(0.205 0 0);
-  --popover-foreground: oklch(0.985 0 0);
-  --primary: oklch(0.922 0 0);
-  --primary-foreground: oklch(0.205 0 0);
-  --secondary: oklch(0.269 0 0);
-  --secondary-foreground: oklch(0.985 0 0);
-  --muted: oklch(0.269 0 0);
-  --muted-foreground: oklch(0.708 0 0);
-  --accent: oklch(0.269 0 0);
-  --accent-foreground: oklch(0.985 0 0);
-  --destructive: oklch(0.704 0.191 22.216);
-  --border: oklch(1 0 0 / 10%);
-  --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.556 0 0);
-  --chart-1: oklch(0.87 0 0);
-  --chart-2: oklch(0.556 0 0);
-  --chart-3: oklch(0.439 0 0);
-  --chart-4: oklch(0.371 0 0);
-  --chart-5: oklch(0.269 0 0);
-  --sidebar: oklch(0.205 0 0);
-  --sidebar-foreground: oklch(0.985 0 0);
-  --sidebar-primary: oklch(0.488 0.243 264.376);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.269 0 0);
-  --sidebar-accent-foreground: oklch(0.985 0 0);
-  --sidebar-border: oklch(1 0 0 / 10%);
-  --sidebar-ring: oklch(0.556 0 0);
+  --teal: #4fb8b3;
+  --ok: #52c48c;
+  --ok-strong: #52c48c;
+  --risk: #e3a54a;
+  --risk-strong: #e3a54a;
+  --block: #f2766b;
+  --block-strong: #f2766b;
+  --pending: #83a8f5;
+  --pending-strong: #83a8f5;
+  --ink: #e4eeee;
+  --muted-ink: #9db1b3;
+  --line: #24393c;
+  --bg: #0b1a1c;
+  --surface: #11272a;
+
+  --teal-soft: color-mix(in srgb, var(--teal) 14%, var(--surface));
+  --ok-soft: color-mix(in srgb, var(--ok) 14%, var(--surface));
+  --risk-soft: color-mix(in srgb, var(--risk) 14%, var(--surface));
+  --block-soft: color-mix(in srgb, var(--block) 14%, var(--surface));
+  --pending-soft: color-mix(in srgb, var(--pending) 14%, var(--surface));
+
+  --primary-foreground: #062326;
+  --secondary: #1a3235;
+  --muted: #162d30;
+  --sidebar-primary-foreground: #062326;
 }
 
 @layer base {
@@ -126,5 +175,43 @@
   }
   html {
     @apply font-sans;
+  }
+  h1,
+  h2,
+  h3,
+  h4 {
+    @apply font-heading tracking-tight;
+  }
+  /* Visible focus everywhere, not just on shadcn primitives. */
+  :where(a, button, input, select, textarea, [tabindex]):focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: 2px;
+  }
+}
+
+@layer utilities {
+  .tabular {
+    font-variant-numeric: tabular-nums;
+  }
+}
+
+/* Voice waveform bars (VoiceButton). Pure CSS so it costs nothing at rest. */
+@keyframes relay-wave {
+  0%,
+  100% {
+    transform: scaleY(0.3);
+  }
+  50% {
+    transform: scaleY(1);
+  }
+}
+.relay-wave > span {
+  animation: relay-wave 900ms ease-in-out infinite;
+  transform-origin: center;
+}
+@media (prefers-reduced-motion: reduce) {
+  .relay-wave > span {
+    animation: none;
+    transform: scaleY(0.6);
   }
 }
