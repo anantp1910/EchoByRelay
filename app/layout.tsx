@@ -6,6 +6,7 @@ import {
 } from "next/font/google";
 
 import { Providers } from "@/components/Providers";
+import { BRAND } from "@/components/brand";
 import "./globals.css";
 
 const display = Bricolage_Grotesque({
@@ -27,11 +28,11 @@ const code = JetBrains_Mono({
 
 export const metadata: Metadata = {
   title: {
-    default: "Relay — every prescription, all the way to the patient",
-    template: "%s · Relay",
+    default: `${BRAND.full} — ${BRAND.tagline}`,
+    template: `%s · ${BRAND.full}`,
   },
   description:
-    "Relay carries a prescription from the doctor's decision to the patient's hands.",
+    BRAND.description,
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {

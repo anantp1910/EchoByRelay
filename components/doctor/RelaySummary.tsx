@@ -4,6 +4,7 @@ import { AnimatePresence, motion } from "framer-motion";
 import { Check, Clock, LoaderCircle, Sparkles } from "lucide-react";
 
 import type { CheckInView } from "@/components/checkins/types";
+import { BRAND } from "@/components/brand";
 import { isRouterProgram, PROGRAM } from "@/components/labels";
 import { SimulatedBadge } from "@/components/SimulatedBadge";
 import type { AgentEvent } from "@/lib/db/types";
@@ -133,10 +134,10 @@ export function RelaySummary({
       <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-2">
         <div>
           <h3 id="relay-summary-title" className="flex items-center gap-2 text-base font-bold">
-            <Sparkles aria-hidden className="size-4 text-primary" /> Relay did this for {patientFirstName}
+            <Sparkles aria-hidden className="size-4 text-primary" /> {BRAND.name} did this for {patientFirstName}
           </h3>
           <p className="text-sm text-muted-foreground">
-            {intake.status === "done" ? "From 1 sentence, Relay:" : "Listening to the prescription…"}
+            {intake.status === "done" ? `From 1 sentence, ${BRAND.name}:` : "Listening to the prescription…"}
           </p>
         </div>
         {minutes > 0 && (

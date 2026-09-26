@@ -6,6 +6,7 @@ import { useCallback, useEffect, useId, useRef, useState, useSyncExternalStore }
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { BRAND } from "@/components/brand";
 import { DEMO_PHRASE } from "@/lib/demo/constants";
 import { cn } from "@/lib/utils";
 
@@ -208,7 +209,7 @@ export function VoiceButton({
               </span>
             ) : (
               <span className="text-sm text-muted-foreground">
-                {processing ? "Sending to Relay…" : (hint ?? "Hold to talk · Space or Enter works too")}
+                {processing ? `Sending to ${BRAND.name}…` : (hint ?? "Hold to talk · Space or Enter works too")}
               </span>
             )}
           </div>

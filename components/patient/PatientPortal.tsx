@@ -6,6 +6,7 @@ import Link from "next/link";
 import { useState } from "react";
 
 import { FixtureBadge, RelayMark } from "@/components/AppHeader";
+import { BRAND } from "@/components/brand";
 import { CheckInCard, CheckInHistory, CheckInNudge } from "@/components/checkins/CheckInCard";
 import { useCheckIns } from "@/components/checkins/useCheckIns";
 import { PROGRAM, isRouterProgram } from "@/components/labels";
@@ -63,7 +64,7 @@ const T = {
     notFoundHint: "Check the link from your care team.",
     loadError: "We couldn't load your updates.",
     retry: "Try again",
-    home: "Go to Relay home",
+    home: `Go to ${BRAND.name} home`,
     program: {
       bridge: "Free bridge supply",
       quick_start: "Free Quick Start supply",
@@ -112,7 +113,7 @@ const T = {
     notFoundHint: "Revise el enlace de su equipo médico.",
     loadError: "No pudimos cargar sus novedades.",
     retry: "Intentar de nuevo",
-    home: "Ir a Relay",
+    home: `Ir a ${BRAND.name}`,
     program: {
       bridge: "Suministro puente gratis",
       quick_start: "Suministro de inicio rápido gratis",
@@ -469,7 +470,7 @@ function Feed({
             >
               <p lang={item.message.lang}>{item.message.body}</p>
               <p className="mt-1 flex items-center gap-2 text-xs text-muted-foreground">
-                <span>Relay</span>
+                <span>{BRAND.name}</span>
                 <span className="rounded border border-line px-1 font-mono uppercase">{item.message.lang}</span>
                 <LocalTime iso={item.message.created_at} />
               </p>

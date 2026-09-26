@@ -10,6 +10,7 @@ import { MARIA_ID } from "@/lib/demo/constants";
 import { cn } from "@/lib/utils";
 
 import { useDemoRole } from "./role";
+import { BRAND } from "./brand";
 import { HAS_SUPABASE } from "./useLiveEvents";
 import { useMounted } from "./useMounted";
 
@@ -28,7 +29,8 @@ export function RelayMark({ className }: { className?: string }) {
         <path d="M8 12h8" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" />
         <path d="M13 8.5 16.5 12 13 15.5" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
       </svg>
-      Relay
+      {BRAND.name}{" "}
+      <span className="font-sans text-xs font-normal text-muted-foreground">by {BRAND.maker}</span>
     </Link>
   );
 }

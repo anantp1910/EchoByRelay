@@ -4,6 +4,7 @@ import { RotateCcw, Search, TriangleAlert } from "lucide-react";
 import { useId, useMemo, useState } from "react";
 
 import { AppHeader } from "@/components/AppHeader";
+import { BRAND } from "@/components/brand";
 import { AgentTimeline } from "@/components/AgentTimeline";
 import { LocalTime } from "@/components/LocalTime";
 import { Button } from "@/components/ui/button";
@@ -52,7 +53,7 @@ export function PharmaDashboard() {
       <main className="mx-auto flex w-full max-w-[1400px] flex-col gap-6 p-4 lg:p-8">
         <div>
           <h1 className="text-3xl font-bold">Access performance</h1>
-          <p className="mt-1 text-muted-foreground">Every prescription Relay carried, from decision to delivery.</p>
+          <p className="mt-1 text-muted-foreground">Every prescription {BRAND.name} carried, from decision to delivery.</p>
         </div>
 
         <Kpis metrics={data.metrics} state={data.metricsState} paSubmitted={data.paSubmitted} onRetry={data.retry} />

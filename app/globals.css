@@ -253,19 +253,81 @@
 }
 
 /* ---------------------------------------------------------------------------
- * Landing (/) — editorial frame + Geist. Scoped so the portals keep their
- * fonts until their own redesign phases.
+ * Echo scope (landing + /signin): cool slate palette, Figtree Light + Inter.
+ * Teal stays as the accent (path, glow, status, focus). Every text pairing is
+ * kept >= 4.5:1, including on the slate band.
  * ------------------------------------------------------------------------- */
-:root {
-  --frame-ground: #e6ebeb;
+.echo {
+  --font-display: var(--font-figtree);
+  --font-body: var(--font-inter);
+  font-family: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+
+  --background: #ffffff;
+  --foreground: #283040;
+  --card: #ffffff;
+  --card-foreground: #283040;
+  --popover: #ffffff;
+  --popover-foreground: #283040;
+  --muted: #f2f4f8;
+  --muted-foreground: #566174;
+  --line: #d9dee6;
+  --border: #d9dee6;
+  --input: #d9dee6;
+  --primary: #283040;
+  --primary-foreground: #ffffff;
+  --accent: #eef1f5;
+  --accent-foreground: #283040;
+  --ring: #0e5e63;
+
+  --slate-pale: #f2f4f8;
+  --slate-band: #c9ced6;
+  --slate-band-ink: #262d3a;
+  --slate-band-muted: #3f4859;
+  --steel: #4f5b73;
+  --echo-accent: #0e5e63;
+  --wordmark: #626b7c;
 }
-.dark {
-  --frame-ground: #060f11;
+.dark .echo,
+.echo.dark {
+  --background: #0e131a;
+  --foreground: #e3e8ef;
+  --card: #141b24;
+  --card-foreground: #e3e8ef;
+  --popover: #141b24;
+  --popover-foreground: #e3e8ef;
+  --muted: #161e29;
+  --muted-foreground: #a3aec0;
+  --line: #263041;
+  --border: #263041;
+  --input: #263041;
+  --primary: #e3e8ef;
+  --primary-foreground: #0e131a;
+  --accent: #1a2330;
+  --accent-foreground: #e3e8ef;
+  --ring: #5fe6da;
+
+  --slate-pale: #121922;
+  --slate-band: #19202b;
+  --slate-band-ink: #e3e8ef;
+  --slate-band-muted: #b3bdcc;
+  --steel: #232d3d;
+  --echo-accent: #5fe6da;
+  --wordmark: #8691a4;
 }
-.landing {
-  --font-display: var(--font-geist);
-  --font-body: var(--font-geist);
-  --font-code: var(--font-geist-mono);
-  font-family: var(--font-geist), ui-sans-serif, system-ui, sans-serif;
-  font-feature-settings: "ss01", "cv11";
+.echo .font-wordmark {
+  font-family: var(--font-anton), "Impact", sans-serif;
+}
+
+/* Echo ripple rings around the drop (off with reduced motion). */
+@keyframes echo-ripple {
+  from { transform: scale(0.85); opacity: 0.55; }
+  to { transform: scale(1.35); opacity: 0; }
+}
+.echo-ripple {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: echo-ripple 4.8s ease-out infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .echo-ripple { animation: none; opacity: 0.25; }
 }

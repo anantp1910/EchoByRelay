@@ -5,6 +5,7 @@ import { Check, CircleX, CreditCard, Fingerprint, LoaderCircle, Repeat, Store, T
 import { useId, useState } from "react";
 
 import { SimulatedBadge } from "@/components/SimulatedBadge";
+import { BRAND } from "@/components/brand";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { HAS_SUPABASE } from "@/components/useLiveEvents";
@@ -21,7 +22,7 @@ const T = {
     merchantName: "Medvantx Pharmacy",
     total: "Total today",
     cap: "Spending cap",
-    capHint: "Relay can never charge more than this.",
+    capHint: `${BRAND.name} can never charge more than this.`,
     capTooLow: "The cap is below the price, so this payment would be declined.",
     recurring: "Refill automatically each month",
     recurringHint: "Uses the same cap. Turn off anytime.",
@@ -54,7 +55,7 @@ const T = {
     merchantName: "Farmacia Medvantx",
     total: "Total de hoy",
     cap: "Límite de gasto",
-    capHint: "Relay nunca puede cobrar más de esto.",
+    capHint: `${BRAND.name} nunca puede cobrar más de esto.`,
     capTooLow: "El límite es menor que el precio, así que el pago sería rechazado.",
     recurring: "Resurtir automáticamente cada mes",
     recurringHint: "Usa el mismo límite. Puede apagarlo cuando quiera.",

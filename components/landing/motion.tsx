@@ -6,6 +6,7 @@ import {
   useInView,
   useMotionValue,
   useReducedMotion,
+  useSpring,
   useTransform,
   type Variants,
 } from "framer-motion";
@@ -76,12 +77,22 @@ export function Reveal({
 }
 
 /** Counts from 0 to `to` when scrolled into view (~900 ms); instant with reduced motion. */
-export function CountUpInView({ to, suffix = "", className }: { to: number; suffix?: string; className?: string }) {
+export function CountUpInView({
+  to,
+  suffix = "",
+  prefix = "",
+  className,
+}: {
+  to: number;
+  suffix?: string;
+  prefix?: string;
+  className?: string;
+}) {
   const ref = useRef<HTMLSpanElement>(null);
   const inView = useInView(ref, { once: true, amount: 0.6 });
   const reduce = useReducedMotion();
   const mv = useMotionValue(0);
-  const text = useTransform(mv, (v) => `${Math.round(v)}${suffix}`);
+  const text = useTransform(mv, (v) => `${prefix}${Math.round(v)}${suffix}`);
 
   useEffect(() => {
     if (!inView) return;
@@ -97,6 +108,7 @@ export function CountUpInView({ to, suffix = "", className }: { to: number; suff
     <span ref={ref} className={className}>
       <motion.span aria-hidden>{text}</motion.span>
       <span className="sr-only">
+        {prefix}
         {to}
         {suffix}
       </span>
@@ -144,5 +156,31 @@ export function InkPill({ href, children, testId }: { href: string; children: Re
         </motion.span>
       </motion.span>
     </motion.a>
+  );
+}
+
+/** Magnetic wrapper: the child leans toward the pointer (max ~8px), springs back. Off with reduced motion. */
+export function Magnetic({ children, strength = 0.25 }: { children: ReactNode; strength?: number }) {
+  const reduce = useReducedMotion();
+  const x = useSpring(0, { stiffness: 260, damping: 18 });
+  const y = useSpring(0, { stiffness: 260, damping: 18 });
+  const clamp = (v: number) => Math.max(-8, Math.min(8, v));
+  return (
+    <motion.span
+      className="inline-block"
+      style={{ x, y }}
+      onPointerMove={(e) => {
+        if (reduce || e.pointerType !== "mouse") return;
+        const r = e.currentTarget.getBoundingClientRect();
+        x.set(clamp((e.clientX - (r.left + r.width / 2)) * strength));
+        y.set(clamp((e.clientY - (r.top + r.height / 2)) * strength));
+      }}
+      onPointerLeave={() => {
+        x.set(0);
+        y.set(0);
+      }}
+    >
+      {children}
+    </motion.span>
   );
 }
