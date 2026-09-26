@@ -44,6 +44,7 @@ create table if not exists care_circle (
   name       text not null,
   relation   text,
   can_pay    boolean not null default false,
+  lang       text not null default 'en' check (lang in ('es', 'en')),
   is_seed    boolean not null default false,
   created_at timestamptz not null default now()
 );
@@ -150,8 +151,9 @@ create table if not exists alerts (
 );
 
 create table if not exists messages (
-  id         uuid primary key default gen_random_uuid(),
-  patient_id uuid not null references patients(id) on delete cascade,
+  id                  uuid primary key default gen_random_uuid(),
+  patient_id          uuid not null references patients(id) on delete cascade,
+  recipient_member_id uuid references care_circle(id) on delete set null,
   sender     text,
   lang       text not null default 'en' check (lang in ('es', 'en')),
   body       text not null,
@@ -224,6 +226,12 @@ begin
     execute format('alter table public.%I replica identity full', t);
   end loop;
 end $$;
+
+-- A5: care-circle language + message recipient (null recipient = the patient).
+alter table care_circle add column if not exists lang text not null default 'en';
+alter table care_circle drop constraint if exists care_circle_lang_check;
+alter table care_circle add constraint care_circle_lang_check check (lang in ('es', 'en'));
+alter table messages add column if not exists recipient_member_id uuid references care_circle(id) on delete set null;
 
 -- ============================================================================
 -- Indexes

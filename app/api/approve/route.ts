@@ -26,6 +26,7 @@ function hasServerEnv(): boolean {
 }
 
 export async function POST(request: NextRequest): Promise<Response> {
+  const routeStarted = Date.now();
   let raw: unknown;
   try {
     raw = await request.json();
@@ -127,14 +128,17 @@ export async function POST(request: NextRequest): Promise<Response> {
         .eq("id", rxId);
       if (updErr) throw new Error(updErr.message);
 
-      // Draft the PA now, awaited (bounded by maxDuration=60). We do NOT use
-      // next/server after() here: in `next dev` the after() context is torn down
-      // after the response, so the ~20s reasoning call hangs forever at
-      // "running". Awaiting is reliable in dev, `next start`, and Vercel; the
-      // paDrafter step still streams running -> needs_approval via realtime.
-      const { paDrafter } = await import("@/lib/agents/paDrafter");
-      await paDrafter(ctx);
+      // Notify the family AND draft the PA — in parallel, awaited. (We don't use
+      // next/server after(): in `next dev` its context is torn down after the
+      // response, hanging long work. allSettled so one failing doesn't stop the
+      // other; each streams its own step via realtime.)
+      const [{ notify }, { paDrafter }] = await Promise.all([
+        import("@/lib/agents/patientComms"),
+        import("@/lib/agents/paDrafter"),
+      ]);
+      await Promise.allSettled([notify(ctx, "enrolled"), paDrafter(ctx)]);
 
+      console.info(`[approve] enroll route ${Date.now() - routeStarted}ms`);
       return jsonResponse({ ok: true as const });
     } catch (err) {
       console.error("[approve] enroll dispatch failed:", err);
@@ -182,6 +186,11 @@ export async function POST(request: NextRequest): Promise<Response> {
           ? "Bridge supply active; awaiting the payer's decision."
           : "Awaiting the payer's decision."
       );
+
+      const { notify } = await import("@/lib/agents/patientComms");
+      await notify(ctx, "pa_submitted");
+
+      console.info(`[approve] submit_pa route ${Date.now() - routeStarted}ms`);
       return jsonResponse({ ok: true as const });
     } catch (err) {
       console.error("[approve] submit_pa dispatch failed:", err);

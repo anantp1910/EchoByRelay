@@ -1,23 +1,28 @@
-// STUB — replaced in A2..A6.
+// Checkout route — Phase 6 (replaces the A1.5 stub).
 //
 // POST /api/checkout  { orderId, payerMemberId, capUsd, recurring, passkeyConfirmed }
-//   -> { status, visaRef, reason, steps[] }
+//   -> { status, visaRef, reason, steps }
 //
-// Simulates the Visa Intelligent Commerce five-step flow. Declines (409-free,
-// 200 with status "declined") when the passkey is not confirmed; otherwise
-// returns "paid" with a fake visaRef. Replaced by the real checkout agent + Visa
-// mock in A6. No DB writes here.
+// 404 if the order doesn't exist. Otherwise the checkout agent runs the Visa
+// flow (or declines with a reason). Awaited (no after()); maxDuration gives the
+// Visa steps + family notification room.
 
 import type { NextRequest } from "next/server";
 
-import {
-  CheckoutReqSchema,
-  CheckoutRes,
-  errorResponse,
-  jsonResponse,
-} from "@/lib/api/contracts";
+import { CheckoutReqSchema, errorResponse, jsonResponse } from "@/lib/api/contracts";
+import type { CheckoutRes } from "@/lib/api/contracts";
+
+export const maxDuration = 60;
+
+function hasServerEnv(): boolean {
+  return Boolean(
+    process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.SUPABASE_SERVICE_ROLE_KEY
+  );
+}
 
 export async function POST(request: NextRequest): Promise<Response> {
+  const routeStarted = Date.now();
+
   let raw: unknown;
   try {
     raw = await request.json();
@@ -29,35 +34,47 @@ export async function POST(request: NextRequest): Promise<Response> {
   if (!parsed.success) {
     return errorResponse("validation_error", parsed.error.message);
   }
-  const { passkeyConfirmed } = parsed.data;
+  const input = parsed.data;
 
-  if (!passkeyConfirmed) {
-    const declined: CheckoutRes = {
+  if (!hasServerEnv()) {
+    const res: CheckoutRes = {
       status: "declined",
       visaRef: null,
-      reason: "Passkey not confirmed",
-      steps: [
-        { name: "enroll_card", ok: true, simulated: true },
-        { name: "create_instruction", ok: true, simulated: true },
-        { name: "verify_passkey", ok: false, simulated: true },
-        { name: "pay", ok: false, simulated: true },
-        { name: "confirm_outcome", ok: false, simulated: true },
-      ],
+      reason: "Payments are temporarily unavailable.",
+      steps: [],
     };
-    return jsonResponse(declined);
+    return jsonResponse(res);
   }
 
-  const paid: CheckoutRes = {
-    status: "paid",
-    visaRef: `VISA-SIM-${crypto.randomUUID().slice(0, 8).toUpperCase()}`,
-    reason: null,
-    steps: [
-      { name: "enroll_card", ok: true, simulated: true },
-      { name: "create_instruction", ok: true, simulated: true },
-      { name: "verify_passkey", ok: true, simulated: true },
-      { name: "pay", ok: true, simulated: true },
-      { name: "confirm_outcome", ok: true, simulated: true },
-    ],
-  };
-  return jsonResponse(paid);
+  const { db } = await import("@/lib/db/server");
+
+  const { data: order, error: orderErr } = await db
+    .from("orders")
+    .select("id, rx_id, enrollment_id, amount_usd, status")
+    .eq("id", input.orderId)
+    .maybeSingle();
+  if (orderErr) return errorResponse("internal", orderErr.message);
+  if (!order) return errorResponse("not_found", "Order not found");
+
+  const { data: rx, error: rxErr } = await db
+    .from("prescriptions")
+    .select("patient_id, program")
+    .eq("id", order.rx_id)
+    .maybeSingle();
+  if (rxErr) return errorResponse("internal", rxErr.message);
+  if (!rx) return errorResponse("not_found", "Prescription for this order not found");
+
+  const { createContext } = await import("@/lib/agents/context");
+  const { checkout } = await import("@/lib/agents/checkout");
+  const ctx = createContext(rx.patient_id as string, order.rx_id as string);
+
+  const res = await checkout(
+    ctx,
+    order as { id: string; rx_id: string; enrollment_id: string | null; amount_usd: number | null; status: string },
+    { patient_id: rx.patient_id as string, program: (rx.program as string | null) ?? null },
+    input
+  );
+
+  console.info(`[checkout] route ${Date.now() - routeStarted}ms status=${res.status}`);
+  return jsonResponse(res);
 }
