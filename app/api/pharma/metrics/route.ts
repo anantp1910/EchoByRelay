@@ -1,40 +1,30 @@
-// STUB — replaced in A2..A6 (real dashboard queries land in Phase 8).
-//
-// GET /api/pharma/metrics -> KPI + chart data
-//
-// Returns realistic fake numbers so Person B can build the pharma dashboard now.
-// Replaced later by real queries over seed + live data.
-
 import { PharmaMetricsResSchema, errorResponse, jsonResponse } from "@/lib/api/contracts";
+import { calculateMetrics, type MetricsRows } from "@/lib/pharma/metrics";
 
 export const dynamic = "force-dynamic";
 
 export async function GET(): Promise<Response> {
-  const body = {
-    scriptsRescued: 42,
-    medianDaysToTherapy: 3.5,
-    bridgeCliffsCaught: 7,
-    pctUnderserved: 61,
-    rescuedSeries: [
-      { day: 0, count: 2 },
-      { day: 6, count: 9 },
-      { day: 12, count: 18 },
-      { day: 18, count: 28 },
-      { day: 24, count: 42 },
-    ],
-    programMix: [
-      { program: "bridge", count: 11 },
-      { program: "quick_start", count: 14 },
-      { program: "pap", count: 6 },
-      { program: "cash_pay", count: 8 },
-      { program: "retail_copay_card", count: 3 },
-    ],
-  };
-
-  const check = PharmaMetricsResSchema.safeParse(body);
-  if (!check.success) {
-    return errorResponse("internal", "pharma metrics stub failed its own schema");
+  try {
+    const { db } = await import("@/lib/db/server");
+    // Paginate so Supabase's default row limit never silently caps demo history.
+    async function all(table: string, columns: string) {
+      const rows = [];
+      for (let from = 0; ; from += 1000) {
+        const { data, error } = await db.from(table).select(columns).order("id").range(from, from + 999);
+        if (error) throw new Error(error.message);
+        rows.push(...(data ?? []));
+        if (!data || data.length < 1000) return rows;
+      }
+    }
+    const [prescriptions, patients, alerts, enrollments, events] = await Promise.all([
+      all("prescriptions", "id,status,created_at,is_seed"), all("patients", "rural"),
+      all("alerts", "rx_id,kind,created_at"), all("enrollments", "rx_id,program,start_day"),
+      all("agent_events", "rx_id,created_at,data"),
+    ]);
+    const rows = { prescriptions, patients, alerts, enrollments, events } as unknown as MetricsRows;
+    rows.events.sort((a, b) => a.created_at.localeCompare(b.created_at));
+    return jsonResponse(PharmaMetricsResSchema.parse(calculateMetrics(rows)));
+  } catch (err) {
+    return errorResponse("internal", err instanceof Error ? err.message : "Could not load metrics");
   }
-
-  return jsonResponse(check.data);
 }

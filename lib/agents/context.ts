@@ -1,6 +1,7 @@
 import "server-only";
 
 import { db } from "@/lib/db/server";
+import { now } from "@/lib/clock";
 import type { AgentEventStatus, Json } from "@/lib/db/types";
 
 // Agent execution context.
@@ -78,6 +79,7 @@ export function createContext(patientId: string, rxId: string | null): AgentCont
   }
 
   async function emit(event: EmitInput): Promise<string> {
+    const { day } = await now();
     const { data, error } = await db
       .from("agent_events")
       .insert({
@@ -88,7 +90,7 @@ export function createContext(patientId: string, rxId: string | null): AgentCont
         title: event.title,
         detail: event.detail ?? null,
         simulated: event.simulated ?? false,
-        data: event.data ?? {},
+        data: { day, ...(typeof event.data === "object" && !Array.isArray(event.data) ? event.data : {}) },
       })
       .select("id")
       .single();
@@ -102,6 +104,7 @@ export function createContext(patientId: string, rxId: string | null): AgentCont
 
   async function step(agent: string, runningTitle: string, opts: StepOptions = {}): Promise<StepHandle> {
     let simulated = opts.simulated ?? false;
+    const { day } = await now();
 
     const { data, error } = await db
       .from("agent_events")
@@ -113,7 +116,7 @@ export function createContext(patientId: string, rxId: string | null): AgentCont
         title: runningTitle,
         detail: opts.detail ?? null,
         simulated,
-        data: {},
+        data: { day },
       })
       .select("id")
       .single();
@@ -131,7 +134,7 @@ export function createContext(patientId: string, rxId: string | null): AgentCont
     ): Promise<string> {
       const { error: updateError } = await db
         .from("agent_events")
-        .update({ status, title, detail, data: data2 ?? {}, simulated })
+        .update({ status, title, detail, data: { day, ...(typeof data2 === "object" && !Array.isArray(data2) ? data2 : {}) }, simulated })
         .eq("id", id);
       if (updateError) {
         throw new Error(`step(${agent}).${status} update failed: ${updateError.message}`);

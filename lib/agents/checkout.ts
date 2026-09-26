@@ -162,7 +162,7 @@ export async function checkout(
     .single();
   if (mandateErr || !mandate) throw new Error(`payment_mandates insert failed: ${mandateErr?.message ?? "no id"}`);
 
-  await db.from("payments").insert({
+  const { error: paymentError } = await db.from("payments").insert({
     mandate_id: (mandate as { id: string }).id,
     order_id: order.id,
     amount_usd: amount,
@@ -170,20 +170,22 @@ export async function checkout(
     status: "succeeded",
     is_seed: false,
   });
+  if (paymentError) throw new Error(`payments insert failed: ${paymentError.message}`);
 
-  await db.from("orders").update({ status: "paid" }).eq("id", order.id);
-  await db.from("orders").update({ status: "shipped" }).eq("id", order.id);
   const day = (await now()).day;
   // Prescription stays `routing`; only expected_delivery_day is set (A6 marks
   // on_therapy on delivery — never before the patient has the medicine).
-  await db.from("prescriptions").update({ expected_delivery_day: day + 2 }).eq("id", order.rx_id);
+  const { error: rxError } = await db.from("prescriptions").update({ expected_delivery_day: day + 2 }).eq("id", order.rx_id);
+  if (rxError) throw new Error(`delivery schedule failed: ${rxError.message}`);
+  const { error: orderError } = await db.from("orders").update({ status: "shipped" }).eq("id", order.id);
+  if (orderError) throw new Error(`shipment update failed: ${orderError.message}`);
 
   const overall = await ctx.step("checkout", "Finalizing payment…", { simulated: true });
   await overall.done(`Paid $${amount} · Visa ref ${visaRef.slice(-4)}`, null, { visaRef, amount });
 
   // One combined family/patient update (payment + shipping). Template (no LLM)
   // to keep the user-facing checkout within its latency budget.
-  await notify(ctx, "payment_done_shipped", { preferTemplate: true });
+  await notify(ctx, "payment_done_shipped", { preferTemplate: true, payerMemberId: input.payerMemberId, amountUsd: amount });
 
   return { status: "paid", visaRef, reason: null, steps };
 }

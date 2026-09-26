@@ -10,7 +10,6 @@ import type { z } from "zod";
 
 import {
   ApiErrorSchema,
-  DemoResSchema,
   IntakeResSchema,
   PharmaMetricsResSchema,
 } from "../lib/api/contracts";
@@ -154,11 +153,12 @@ async function main(): Promise<void> {
     ApiErrorSchema
   );
 
-  // 5. demo reset
-  await check(
-    "POST /api/demo",
-    () => req("POST", "/api/demo", { action: "reset" }),
-    DemoResSchema
+  // 5. Validate the demo route without resetting the team's shared database.
+  await checkStatus(
+    "POST /api/demo (invalid action)",
+    () => req("POST", "/api/demo", { action: "invalid" }),
+    400,
+    ApiErrorSchema
   );
 
   // 6. pharma metrics

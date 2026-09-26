@@ -139,6 +139,14 @@ export const PaResSchema = z.object({
 });
 export type PaRes = z.infer<typeof PaResSchema>;
 
+// PATCH /api/pa/[rxId] — doctor edits the letter body of the latest draft.
+export const PaEditReqSchema = z.object({ letterMd: z.string().min(1) });
+export type PaEditReq = z.infer<typeof PaEditReqSchema>;
+
+// Generic { ok: true } response (alerts resolve, etc.).
+export const OkResSchema = z.object({ ok: z.literal(true) });
+export type OkRes = z.infer<typeof OkResSchema>;
+
 // ---------------------------------------------------------------------------
 // POST /api/checkout
 // ---------------------------------------------------------------------------

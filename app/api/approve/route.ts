@@ -70,13 +70,21 @@ export async function POST(request: NextRequest): Promise<Response> {
   const patientId: string = event.patient_id;
   const rxId: string | null = event.rx_id ?? (event.data?.rxId as string | undefined) ?? null;
   const data = (event.data ?? {}) as Record<string, unknown>;
+  if ((data.action === "enroll" || data.action === "submit_pa") && actor !== "doctor") {
+    return errorResponse("conflict", "A doctor must approve enrollment and PA submission");
+  }
 
   // Mark the decision and write actor/via to the audit trail.
   const newStatus = decision === "approve" ? "approved" : "rejected";
-  await db
+  const { data: claimed, error: claimError } = await db
     .from("agent_events")
     .update({ status: newStatus, data: { ...data, decidedBy: actor, decidedVia: via } })
-    .eq("id", eventId);
+    .eq("id", eventId)
+    .eq("status", "needs_approval")
+    .select("id")
+    .maybeSingle();
+  if (claimError) return errorResponse("internal", claimError.message);
+  if (!claimed) return errorResponse("conflict", "This approval is already being handled");
   await db.from("audit_log").insert({
     actor,
     action: `approve.${decision}`,
@@ -122,11 +130,18 @@ export async function POST(request: NextRequest): Promise<Response> {
         .from("prescriptions")
         .update({
           program,
-          status: statusForProgram(program),
-          expected_delivery_day: day + shipsInDays,
+          status: data.paDenied ? "at_risk" : statusForProgram(program),
+          expected_delivery_day: program === "cash_pay" ? null : day + shipsInDays,
         })
         .eq("id", rxId);
       if (updErr) throw new Error(updErr.message);
+      if (program === "cash_pay") {
+        const order = await medvantx.createCashPayOrder(ctx, rxId);
+        const { notify } = await import("@/lib/agents/patientComms");
+        await notify(ctx, "pa_denied_new_plan", { preferTemplate: true, amountUsd: order.amountUsd });
+        console.info(`[approve] cash_pay route ${Date.now() - routeStarted}ms`);
+        return jsonResponse({ ok: true as const });
+      }
 
       // Notify the family AND draft the PA — in parallel, awaited. (We don't use
       // next/server after(): in `next dev` its context is torn down after the
@@ -136,12 +151,15 @@ export async function POST(request: NextRequest): Promise<Response> {
         import("@/lib/agents/patientComms"),
         import("@/lib/agents/paDrafter"),
       ]);
-      await Promise.allSettled([notify(ctx, "enrolled"), paDrafter(ctx)]);
+      const results = await Promise.allSettled([notify(ctx, "enrolled"), paDrafter(ctx)]);
+      const failed = results.find((r) => r.status === "rejected");
+      if (failed?.status === "rejected") throw failed.reason;
 
       console.info(`[approve] enroll route ${Date.now() - routeStarted}ms`);
       return jsonResponse({ ok: true as const });
     } catch (err) {
       console.error("[approve] enroll dispatch failed:", err);
+      await db.from("agent_events").update({ status: "needs_approval" }).eq("id", eventId);
       await ctx.emit({
         agent: "medvantx",
         status: "blocked",

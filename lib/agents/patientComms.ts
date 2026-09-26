@@ -21,6 +21,7 @@ import type { Language } from "@/lib/db/types";
 export type CommsEvent =
   | "enrolled"
   | "pa_submitted"
+  | "pa_approved"
   | "pa_denied_new_plan"
   | "payment_done_shipped"
   | "delivered";
@@ -33,6 +34,8 @@ interface Recipient {
   role: Role;
   relation: string | null;
   lang: Language;
+  isPayer?: boolean;
+  canPay?: boolean;
 }
 
 const MessagesSchema = z.object({
@@ -113,30 +116,34 @@ function templateMessage(event: CommsEvent, r: Recipient, f: Facts): string {
     case "pa_submitted":
       if (caregiver) {
         return es
-          ? `Enviamos la autorización previa de ${drug} a ${f.planName} para ${name}. Compartiremos la decisión del plan. El suministro de ${program} mantiene el tratamiento de ${name} sin interrupción.${closer}`
+          ? `El equipo de atención envió la autorización previa de ${drug} a ${f.planName} para ${name}. Compartiremos la decisión del plan. El suministro de ${program} mantiene el tratamiento de ${name} sin interrupción.${closer}`
           : `We sent the prior authorization for ${drug} to ${f.planName} for ${name}. We'll share the plan's decision. ${name}'s ${program} supply keeps treatment going in the meantime.${closer}`;
       }
       return es
-        ? `Enviamos la autorización previa de ${drug} a ${f.planName}. Le avisaremos la decisión del plan. Mientras tanto, su suministro de ${program} mantiene su tratamiento sin interrupción.`
+        ? `Su equipo de atención envió la autorización previa de ${drug} a ${f.planName}. Le avisaremos la decisión del plan. Mientras tanto, su suministro de ${program} mantiene su tratamiento sin interrupción.`
         : `We sent the prior authorization for ${drug} to ${f.planName}. We'll tell you the plan's decision. In the meantime, your ${program} supply keeps your treatment going.`;
     case "pa_denied_new_plan":
       if (caregiver) {
         return es
-          ? `El plan de ${name} no aprobó ${drug}. Estamos cambiando el tratamiento de ${name} a ${f.newPathLabel} para que no pierda ninguna dosis. Mostraremos el costo antes de cualquier pago.${closer}`
-          : `${name}'s plan did not approve ${drug}. We're switching ${name} to ${f.newPathLabel} so there's no gap in doses. We'll show the cost before any payment.${closer}`;
+          ? `El plan de ${name} no aprobó ${drug}. El médico aprobó ${f.newPathLabel}. ${r.canPay ? `Puede revisar y aprobar el pago de $${f.amountUsd} para la medicina de ${name}.` : "Una persona autorizada puede revisar el costo antes de pagar."}${closer}`
+          : `${name}'s plan did not approve ${drug}. The doctor approved ${f.newPathLabel}. ${r.canPay ? `You can now review and approve the $${f.amountUsd} payment for ${name}'s medicine.` : "An authorized payer can review the cost before payment."}${closer}`;
       }
       return es
-        ? `Su plan no aprobó ${drug}. Estamos cambiando su tratamiento a ${f.newPathLabel} para que no pierda ninguna dosis. Le mostraremos el costo antes de cualquier pago.`
-        : `Your plan did not approve ${drug}. We're switching you to ${f.newPathLabel} so you don't miss any doses. We'll show you the cost before any payment.`;
+        ? `Su plan no aprobó ${drug}. Su médico aprobó el cambio a ${f.newPathLabel}. Su familiar autorizado puede revisar el costo de $${f.amountUsd} antes de pagar.`
+        : `Your plan did not approve ${drug}. Your doctor approved ${f.newPathLabel}. Your authorized family member can review the $${f.amountUsd} cost before paying.`;
     case "payment_done_shipped":
       if (caregiver) {
         return es
           ? `El pago de $${f.amountUsd} por ${drug} de ${name} se realizó. La medicina fue enviada y debería llegar en unos ${f.daysUntil} días.${closer}`
-          : `${name}'s payment of $${f.amountUsd} for ${drug} is complete. The medicine has shipped and should arrive in about ${f.daysUntil} days.${closer}`;
+          : `${r.isPayer ? "Your payment" : "The payment"} of $${f.amountUsd} for ${name}'s ${drug} is complete. The medicine has shipped and should arrive in about ${f.daysUntil} days.${closer}`;
       }
       return es
-        ? `Su pago de $${f.amountUsd} por ${drug} se realizó. Su medicina fue enviada y debería llegar en unos ${f.daysUntil} días.`
-        : `Your payment of $${f.amountUsd} for ${drug} is complete. Your medicine has shipped and should arrive in about ${f.daysUntil} days.`;
+        ? `${r.isPayer ? "Su pago" : "El pago"} de $${f.amountUsd} por ${drug} se realizó. Su medicina fue enviada y debería llegar en unos ${f.daysUntil} días.`
+        : `${r.isPayer ? "Your payment" : "The payment"} of $${f.amountUsd} for ${drug} is complete. Your medicine has shipped and should arrive in about ${f.daysUntil} days.`;
+    case "pa_approved":
+      return es
+        ? `El plan aprobó la autorización de ${drug}${caregiver ? ` para ${name}` : ""}. Su equipo de atención confirmará la entrega de la medicina.`
+        : `The plan approved the authorization for ${drug}${caregiver ? ` for ${name}` : ""}. The care team will confirm medicine delivery.`;
     case "delivered":
       if (caregiver) {
         return es
@@ -154,6 +161,7 @@ RULES:
 - Use ONLY the facts provided. Do NOT add clinical claims or dosing advice beyond what is stated.
 - Mention the medication by name. Do NOT include any number that is not in the facts.
 - Warm, clear, 1-3 short sentences.
+- For pa_submitted, the doctor/care team submitted the request to the insurer. Medvantx Bridge did NOT submit or transmit the PA.
 - Address each recipient correctly:
   - role "patient": second person ("your medicine …").
   - role "caregiver": address them in the second person but refer to the PATIENT in the third person by first name. "relation" is the caregiver's relationship TO the patient (e.g. "daughter" means the patient is their parent), so phrase it naturally, e.g. "Your mother {patientFirstName} …". If relation is missing, use the patient's first name.
@@ -181,9 +189,10 @@ function buildFacts(
     case "enrolled":
       return { ...base, shipsInDays: 2 };
     case "pa_submitted":
+    case "pa_approved":
       return { ...base, planName };
     case "pa_denied_new_plan":
-      return { ...base, newPathLabel: "Medvantx Cash Pay" };
+      return { ...base, newPathLabel: "Medvantx Cash Pay", amountUsd: 89 };
     case "payment_done_shipped":
       return { ...base, amountUsd: 89, daysUntil };
     case "delivered":
@@ -250,7 +259,7 @@ async function draftMessages(
 export async function notify(
   ctx: AgentContext,
   event: CommsEvent,
-  opts: { preferTemplate?: boolean } = {}
+  opts: { preferTemplate?: boolean; payerMemberId?: string; amountUsd?: number } = {}
 ): Promise<void> {
   const step = await ctx.step("patientComms", "Updating Maria and her family…", {});
 
@@ -272,25 +281,29 @@ export async function notify(
 
     const { data: members } = await db
       .from("care_circle")
-      .select("id, relation, lang")
+      .select("id, relation, lang, can_pay")
       .eq("patient_id", ctx.patientId);
 
     const patientFirstName = String(patient.name).split(" ")[0] || String(patient.name);
 
     const recipients: Recipient[] = [
       { promptKey: "patient", memberId: null, role: "patient", relation: null, lang: (patient.language as Language) ?? "en" },
-      ...((members ?? []) as { id: string; relation: string | null; lang: string | null }[]).map((m, i) => ({
+      ...((members ?? []) as { id: string; relation: string | null; lang: string | null; can_pay: boolean }[]).map((m, i) => ({
         promptKey: `caregiver${i + 1}`,
         memberId: m.id,
         role: "caregiver" as Role,
         relation: m.relation,
         lang: (m.lang as Language) ?? "en",
+        canPay: m.can_pay,
       })),
     ];
+    for (const r of recipients) r.isPayer = (r.memberId ?? ctx.patientId) === opts.payerMemberId;
 
     const day = (await now()).day;
     const facts = buildFacts(event, rx, patientFirstName, getPlan(patient.plan_id ?? null).planName, day);
-    const { byKey, source } = await draftMessages(event, facts, recipients, opts.preferTemplate ?? false);
+    if (opts.amountUsd !== undefined) facts.amountUsd = opts.amountUsd;
+    const { byKey, source } = await draftMessages(event, facts, recipients,
+      opts.preferTemplate || process.env.DEMO_MODE === "true" || event !== "enrolled");
 
     for (const r of recipients) {
       const { error } = await db.from("messages").insert({
@@ -310,5 +323,6 @@ export async function notify(
     });
   } catch (err) {
     await step.blocked("Could not send updates", err instanceof Error ? err.message : String(err));
+    throw err;
   }
 }

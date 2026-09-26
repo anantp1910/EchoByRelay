@@ -21,6 +21,8 @@ import {
   IntakeReq,
   IntakeRes,
   IntakeResSchema,
+  OkRes,
+  OkResSchema,
   PaRes,
   PaResSchema,
   PharmaMetricsRes,
@@ -81,6 +83,22 @@ export function approve(body: ApproveReq): Promise<ApproveRes> {
 
 export function getPa(rxId: string): Promise<PaRes> {
   return apiFetch(`/api/pa/${encodeURIComponent(rxId)}`, { method: "GET" }, PaResSchema);
+}
+
+export function editPa(rxId: string, letterMd: string): Promise<PaRes> {
+  return apiFetch(
+    `/api/pa/${encodeURIComponent(rxId)}`,
+    { method: "PATCH", body: JSON.stringify({ letterMd }) },
+    PaResSchema
+  );
+}
+
+export function resolveAlert(alertId: string): Promise<OkRes> {
+  return apiFetch(
+    `/api/alerts/${encodeURIComponent(alertId)}/resolve`,
+    { method: "POST" },
+    OkResSchema
+  );
 }
 
 export function checkout(body: CheckoutReq): Promise<CheckoutRes> {

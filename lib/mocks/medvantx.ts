@@ -2,6 +2,7 @@ import "server-only";
 
 import { db } from "@/lib/db/server";
 import { now } from "@/lib/clock";
+import { operationId } from "@/lib/db/identity";
 import type { AgentContext } from "@/lib/agents/context";
 import type { EnrollmentProgram } from "@/lib/db/types";
 
@@ -35,12 +36,13 @@ export function listPrograms(drug: string): EnrollmentProgram[] {
 // Reuse or create an enrollment for rx+program; returns its id. bridge/quick_start
 // get a supply window (end_day); other programs have no fixed window.
 async function ensureEnrollment(rxId: string, program: EnrollmentProgram): Promise<string> {
-  const { data: existing } = await db
+  const { data: existing, error: existingError } = await db
     .from("enrollments")
     .select("id")
     .eq("rx_id", rxId)
     .eq("program", program)
     .limit(1);
+  if (existingError) throw new Error(existingError.message);
   if (existing && existing.length > 0) {
     return (existing[0] as { id: string }).id;
   }
@@ -49,20 +51,21 @@ async function ensureEnrollment(rxId: string, program: EnrollmentProgram): Promi
   const windowed = program === "bridge" || program === "quick_start";
   const { data, error } = await db
     .from("enrollments")
-    .insert({
+    .upsert({
+      id: operationId("enrollment", rxId, program),
       rx_id: rxId,
       program,
       start_day: day,
       end_day: windowed ? day + SUPPLY_DAYS : null,
       status: "active",
       is_seed: false,
-    })
+    }, { onConflict: "id", ignoreDuplicates: true })
     .select("id")
-    .single();
+    .maybeSingle();
   if (error) {
     throw new Error(`ensureEnrollment(${program}) failed: ${error.message}`);
   }
-  return (data as { id: string }).id;
+  return data?.id ?? operationId("enrollment", rxId, program);
 }
 
 /** Enroll a prescription in a program. Idempotent: reuses an existing enrollment for rx+program. */
@@ -77,7 +80,15 @@ export async function enroll(
   try {
     const enrollmentId = await ensureEnrollment(rxId, program);
 
-    await s.done(`Enrolled in ${label}`, `${SUPPLY_DAYS}-day supply · ships in ${SHIPS_IN_DAYS} days.`, {
+    if (["bridge", "quick_start", "pap"].includes(program)) {
+      const { error } = await db.from("orders").upsert({
+        id: operationId("supply", enrollmentId), rx_id: rxId, enrollment_id: enrollmentId,
+        amount_usd: 0, status: "shipped", is_seed: false,
+      }, { onConflict: "id", ignoreDuplicates: true });
+      if (error) throw new Error(error.message);
+    }
+
+    await s.done(`Enrolled in ${label}`, program === "cash_pay" ? "Awaiting payment approval before shipping." : `${SUPPLY_DAYS}-day supply · expected delivery in ${SHIPS_IN_DAYS} days.`, {
       enrollmentId,
       program,
     });
@@ -101,19 +112,20 @@ export async function createCashPayOrder(
 
     const { data, error } = await db
       .from("orders")
-      .insert({
+      .upsert({
+        id: operationId("cash-order", enrollmentId),
         rx_id: rxId,
         enrollment_id: enrollmentId,
         amount_usd: CASH_PAY_PRICE_USD,
         status: "created",
         is_seed: false,
-      })
+      }, { onConflict: "id", ignoreDuplicates: true })
       .select("id")
-      .single();
+      .maybeSingle();
     if (error) {
       throw new Error(`medvantx.createCashPayOrder failed: ${error.message}`);
     }
-    const orderId = (data as { id: string }).id;
+    const orderId = data?.id ?? operationId("cash-order", enrollmentId);
 
     await s.done("Cash Pay order created", `$${CASH_PAY_PRICE_USD} self-pay order.`, {
       orderId,
