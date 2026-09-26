@@ -1,6 +1,6 @@
 # Relay — Build Plan (HackGT 13)
 
-One website, three portals (Doctor, Patient, Pharma), ten agents, one flawless demo. This file is the step-by-step playbook from zero to submission. `CLAUDE.md` is the rulebook the coding agent follows.
+One website, three portals (Doctor, Patient, Pharma), a chain of agents, one flawless demo. Team: 3 people (A Engine: Anant, B Experience + Demo, C Integration + Ops) plus Claude Code. Repo: https://github.com/anantp1910/EchoByRelay This file is the step-by-step playbook from zero to submission. `CLAUDE.md` is the rulebook the coding agent follows.
 
 ---
 
@@ -19,16 +19,16 @@ Agent chain: **Voice → Trust gate → Intake → Coverage → Router → PA dr
 
 ## 1. Setup from zero (do this in the first 60–90 minutes)
 
-### 1.1 Accounts (one person, before coding starts)
+### 1.1 Accounts (Person C, before coding starts)
 
-- [ ] GitHub org or repo `relay-hackgt` (public — Meta requires a public repo)
+- [x] GitHub repo `EchoByRelay` (make it public before submission — Meta requires a public repo)
 - [ ] Supabase project (free tier) → copy URL, anon key, service role key
 - [ ] Vercel account linked to GitHub
 - [ ] xAI / Grok API key — get the hackathon credits from the SpaceXAI booth
 - [ ] Ask SpaceXAI booth: is Grok Voice available via API for us? (decides the voice path in Phase 2)
 - [ ] Ask Visa booth: can we get Visa Developer sandbox access for Intelligent Commerce / the MCP server? (decides real vs mock in Phase 6)
 - [ ] Notability Pro active on one teammate's device; record all sponsor conversations
-- [ ] Download the NSA HEARSAY training + test sets
+- [ ] (Optional) Download the NSA HEARSAY data in case you get ahead
 
 ### 1.2 Tools on every laptop
 
@@ -39,22 +39,37 @@ Agent chain: **Voice → Trust gate → Intake → Coverage → Router → PA dr
 
 > How Cursor and Claude Code fit together: open the repo in Cursor, and run `claude` in Cursor's built-in terminal. You get Cursor as the editor (SpaceXAI requirement) and Claude Code as the agent that writes most of the code. The product itself calls Grok at runtime. Confirm with the SpaceXAI booth that this setup counts; if they want Cursor's own agent used, use it for part of the build and screenshot it.
 
-### 1.3 Create the repo
+### 1.3 Create the repo (done once by Person A)
+
+The repo already exists and Person A scaffolds it once. Everyone else just clones it.
+
+Scaffold (Person A, inside the cloned repo; create-next-app refuses non-empty folders, so park the docs first):
 
 ```bash
-npx create-next-app@latest relay --ts --tailwind --eslint --app --src-dir=false --import-alias "@/*"
-cd relay
-npx shadcn@latest init
-npx shadcn@latest add button card badge dialog input tabs table toast avatar progress separator sheet dropdown-menu tooltip skeleton
+mv CLAUDE.md BUILD_PLAN.md README.md ..
+npx create-next-app@latest . --ts --tailwind --eslint --app --no-src-dir --import-alias "@/*" --use-npm --yes
+mv ../CLAUDE.md ../BUILD_PLAN.md ../README.md .
+npx shadcn@latest init -d
+npx shadcn@latest add button card badge dialog input tabs table sonner avatar progress separator sheet dropdown-menu tooltip skeleton
 npm i @supabase/supabase-js openai zod framer-motion lucide-react recharts clsx date-fns
-git init && git add . && git commit -m "chore: scaffold"
+git add . && git commit -m "chore: scaffold Next.js app" && git push
 ```
 
-Copy `CLAUDE.md` and this `BUILD_PLAN.md` into the repo root. Commit.
+Everyone else (after "main is ready"):
+
+```bash
+git clone https://github.com/anantp1910/EchoByRelay.git
+cd EchoByRelay
+npm install
+git checkout -b experience     # Person B
+git checkout -b integration    # Person C
+```
+
+Windows note: in PowerShell use `cd C:\Users\<you>\Projects\EchoByRelay` (not `/c/...`). Always `cd` into the repo before running `claude`, never start it from your home folder.
 
 ### 1.4 Environment
 
-`.env.local` (never commit) and `.env.example` (commit, no values):
+`.env.local` (never commit) and `.env.example` (commit, no values). The Next.js template ignores all `.env*` files, so add `!.env.example` to `.gitignore`:
 
 ```
 NEXT_PUBLIC_SUPABASE_URL=
@@ -78,9 +93,9 @@ claude
 
 First message to Claude:
 
-> Read CLAUDE.md and BUILD_PLAN.md fully. Summarize the demo, the stack, and the hard rules in 10 bullets. Then wait for Phase 1.
+> Read CLAUDE.md and BUILD_PLAN.md fully. I am Person [A/B/C]. Summarize the demo, the stack, the hard rules, and which folders I'm allowed to edit, in 10 bullets. Then wait.
 
-If the summary is wrong, fix the docs before writing any code.
+If the summary is wrong (especially your folders), fix the docs before writing any code.
 
 ---
 
@@ -231,7 +246,7 @@ Done when: speaking the Maria sentence produces a streaming timeline with a pars
 Done when: Maria routes to Bridge with a clear explanation; other seed patients route to other programs.
 
 ### Phase 4 — PA drafter + eligibility with real FDA data (hours 14–18)
-> Implement lib/data/openfda.ts (drug label fetch with a cached fixture fallback) and lib/agents/paDrafter.ts. The PA letter is markdown with numbered citations linking to exact label sections. Only label content may be cited. Build the PA drawer in the doctor portal with Approve and approve-by-voice. Implement lib/agents/eligibility.ts that pre-fills PAP fields for the patient to confirm.
+> Implement lib/data/openfda.ts (drug label fetch with a cached fixture fallback) and lib/agents/paDrafter.ts. The PA letter is markdown with numbered citations linking to exact label sections. Only label content may be cited. Build the PA drawer in the doctor portal with Approve and approve-by-voice.
 
 Done when: the PA letter reads like a real one and every clinical claim has a citation.
 
@@ -253,7 +268,7 @@ Done when: "Jump to day 24" + "Deny PA" triggers the full rescue path with no ma
 ### Phase 8 — Pharma dashboard (hours 28–30)
 > Build /pharma per section 3.4 using real queries over seed + live data. KPIs count up on load. Include the audit table and the de-identified live feed.
 
-### Phase 9 — Trust gate (parallel track, owner: Voice + trust)
+### Phase 9 — Trust gate (OPTIONAL, Person C; only if the demo is solid by hour 26)
 > In services/hearsay, build a FastAPI endpoint POST /score that accepts audio and returns {syntheticScore, manipulationType}. Implement lib/agents/trustGate.ts to call it before intake; block and show a red "Voice not verified" card above the threshold. If the service is down, show "unverified" and require a click approval instead of voice approval.
 
 Separately: train on the NSA dataset and produce the test-set CSV for the HEARSAY submission.
@@ -266,36 +281,58 @@ Separately: train on the NSA dataset and produce the test-set CSV for the HEARSA
 
 ---
 
-## 5. Team split and timeline
+## 5. Team split and timeline (3 people)
 
-| Person | Owns | Phases |
-| --- | --- | --- |
-| P1 Agents lead | Orchestrator, intake, coverage, router, PA drafter, watchdog | 2, 3, 4, 7 |
-| P2 Voice + trust | Voice capture, trust gate, HEARSAY model + CSV | 2 (voice), 9 |
-| P3 Commerce + data | Mocks, Visa checkout, openFDA, trials | 3 (mocks), 6, stretch |
-| P4 Product + story | Design system, all three portals' UI, dashboard, videos, write-ups, Notability | 1, 5, 8, 10 |
+Each person runs their own Claude Code session on their own branch and folders, so the three agents never edit the same files. The step-by-step version with prompts is the Team Handout PDF and the Team Runbook doc; this section is the summary.
 
-| Hours | Milestone |
+### 5.1 Scope
+
+| Keep (the demo needs it) | Cut or defer |
 | --- | --- |
-| 0–1.5 | Setup (section 1), sponsor booth questions |
-| 1.5–5 | Phase 1 done; everyone works on branches |
-| 5–14 | Voice → timeline → routing works end to end (ugly is fine) |
-| 14–22 | PA, patient portal, care circle |
-| 22–28 | Visa checkout + watchdog rescue path |
-| 28–30 | Dashboard; **full demo runs start to finish** |
-| 30–33 | Polish, fixtures, rehearse 5 times |
-| 33–36 | **Feature freeze.** Record videos, write submissions, deploy |
+| Voice intake (Web Speech API first), orchestrator, live timeline | Eligibility pre-fill agent |
+| Coverage + router + Medvantx mock | Trial matcher (stretch) |
+| PA drafter with openFDA citations | WebAuthn passkey — use a labeled simulated passkey |
+| Patient portal + care circle (Spanish) | Visa sandbox, unless the booth hands you working keys |
+| Visa checkout as a mock with the five-step shape | NSA HEARSAY — Person C only, only if calm after hour 20 |
+| Watchdog + demo panel | Charts beyond 4 KPIs + 2 charts on the pharma dashboard |
+
+Sponsors entered: Aramco (main track), Impiricus, Visa, SpaceXAI, Meta, Notability, Create-X. NSA HEARSAY only if built.
+
+### 5.2 Roles
+
+| | Person A: Engine (Anant) | Person B: Experience + Demo | Person C: Integration + Ops |
+| --- | --- | --- | --- |
+| Owns | Database schema, all agents, mocks (payer, Medvantx, Visa), watchdog, demo clock, API routes | Design system, all portals, checkout sheet, demo panel UI, demo storyboard, rehearsals, videos | Accounts, keys, sponsor questions, seed data, fixtures, E2E test, merges, deploy, all submissions |
+| Branch | `engine` | `experience` | `integration` |
+| Claude may edit | `lib/` (not fixtures), `app/api/`, `supabase/schema.sql` | page routes in `app/`, `components/`, `public/` | `lib/data/fixtures/`, `supabase/seed.sql`, `tests/`, `docs/`, `README.md`, `.env.example`, deploy config |
+| First deliverable | `lib/db/types.ts` on `main` by hour 2 | Storyboard by hour 1.5; UI shells by hour 5 | Keys shared by hour 0.5; sponsor answers by hour 2 |
+
+The contract is `lib/db/types.ts` plus the AgentEvent shape in CLAUDE.md. Need a change in someone else's folder? Ask that person, not your Claude session.
+
+### 5.3 Timeline
+
+| Hours | Person A — Engine | Person B — Experience + Demo | Person C — Integration + Ops |
+| --- | --- | --- | --- |
+| 0–1.5 | Scaffold + push `main` | Design direction + demo storyboard | Supabase, Grok key, Vercel, Devpost; sponsor booths |
+| 1.5–5 | Schema, types, clock (Phase 1 data) | Design tokens, shells, AgentTimeline, StatusPill, VoiceButton | Realistic seed data; openFDA + Grok fixtures |
+| 5–11 | Orchestrator, intake, coverage, router, Medvantx mock (Phases 2–3) | Doctor portal wired to Realtime; voice capture | Fixtures, Playwright setup |
+| 11–16 | PA drafter + openFDA (Phase 4) | PA drawer, approval cards, alerts | Maria E2E test; data-testid list for B |
+| 16–22 | Patient comms; Visa mock + checkout (Phases 5–6) | Patient portal, care circle, checkout sheet | Starts integrating: merges, bug list |
+| 22–26 | Watchdog + re-route (Phase 7) | Demo panel, pharma dashboard (Phase 8) | Deploy to Vercel; test on phone + laptop |
+| 26–28 | **Together:** run the full Maria demo, fix every break | same | runs the test, routes bugs |
+| 28–32 | DEMO_MODE, timeouts, bug fixes | Polish (Phase 10) | Final deploy; optional HEARSAY |
+| 32–36 | **Freeze.** Technical write-up parts; drives the demo | Rehearse; record main + Meta videos; presents | Submits every Devpost entry; answers judge Q&A |
+
+Sleep in shifts, never more than one person asleep: C around hours 10–14, A around 14–18, B around 18–22. Before sleeping, push and post a 3-line handoff (done, broken, next).
 
 Rule: at hour 28, if the full Maria demo doesn't run, stop all new work and fix the chain.
 
-Git: `main` always deployable; feature branches; merge every 2–3 hours; one person owns merges.
-
----
+Git: `main` always deployable. Branches `engine`, `experience`, `integration`. Person C merges all three into `main` every 2–3 hours and runs the E2E test; everyone then pulls `main` into their branch.
 
 ## 6. The 3-minute demo script
 
 1. **(0:00) Hook.** "Nearly a third of new branded prescriptions never reach the patient. The doctor made the right call. The system dropped the baton."
-2. **(0:20) Doctor.** Hold the mic: "Starting Maria on [drug], ten milligrams daily." Trust gate verifies. Timeline streams: coverage → PA required, $480 copay → router picks Medvantx Bridge → PA drafted with citations. Say "approve."
+2. **(0:20) Doctor.** Hold the mic: "Starting Maria on [drug], ten milligrams daily." Timeline streams: coverage → PA required, $480 copay → router picks Medvantx Bridge → PA drafted with citations. Say "approve."
 3. **(1:00) Patient phone.** Spanish explanation appears live. Ana joins the care circle.
 4. **(1:25) Twist.** Demo panel: jump to day 24, deny PA. Doctor gets a bridge-cliff alert with an appeal draft and a new path: Cash Pay.
 5. **(1:55) Checkout.** Ana approves on her phone with a passkey under a spending cap. Visa steps tick through. Order shipped. Refill mandate on.
@@ -311,7 +348,7 @@ Git: `main` always deployable; feature branches; merge every 2–3 hours; one pe
 - [ ] **Visa:** highlight the Cash Pay checkout, spending caps, mandates, and trust.
 - [ ] **SpaceXAI:** built in Cursor, Grok for reasoning/voice/visuals; screenshots of Cursor + Grok usage.
 - [ ] **Meta:** separate 2–3 min video focused on the care circle and connection; public repo; short write-up (who it's for, how it strengthens connection, why AI is essential).
-- [ ] **NSA HEARSAY:** test-set CSV in the required format + short method note.
+- [ ] **NSA HEARSAY (only if built):** test-set CSV in the required format + short method note.
 - [ ] **Notability:** "Notability" tag in tools used, a note on how you used it, at least 2 screenshots.
 - [ ] **Create-X:** tick "interested" at final submission.
 - [ ] Deployed URL works on a phone and a laptop; demo mode reset tested.
@@ -327,6 +364,6 @@ Git: `main` always deployable; feature branches; merge every 2–3 hours; one pe
 | Visa sandbox not granted | Mock with identical five-step shapes; say so on stage |
 | openFDA or trials API slow | Cached JSON fixtures |
 | Venue Wi-Fi dies | Local `npm run dev` + phone hotspot; pre-recorded backup video |
-| Scope creep | Cut trial matcher, then eligibility pre-fill, never the Maria chain |
+| Scope creep | Already cut: eligibility, trials; HEARSAY optional for C. Next cut: pharma charts, then Spanish visuals. Never the Maria chain |
 
 Honesty lines for judges: "The payer and Medvantx are simulated with shapes that mirror the real systems. All patient data is synthetic. Clinical content comes only from the FDA label."
