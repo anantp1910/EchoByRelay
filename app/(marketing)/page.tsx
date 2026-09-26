@@ -46,19 +46,18 @@ export default function Home() {
               Every prescription, all the way to the patient.
             </h1>
             <p className="mt-6 max-w-xl text-lg text-muted-foreground">
-              The doctor made the right call. Relay makes sure the medicine arrives: coverage, free bridge
-              supply, prior authorization, family payment, and a watchdog for every cliff in between.
+              Relay carries every prescription from the doctor&apos;s decision to the patient&apos;s hands.
             </p>
             <div className="mt-8 flex flex-wrap gap-3">
               <Link
                 href="/doctor"
-                className="inline-flex h-11 items-center gap-2 rounded-lg bg-primary px-5 font-medium text-primary-foreground hover:bg-primary/90"
+                className="inline-flex min-h-11 items-center gap-2 rounded-lg bg-primary px-5 font-medium text-primary-foreground hover:bg-primary/90"
               >
                 Open the doctor portal <ArrowRight aria-hidden className="size-4" />
               </Link>
               <Link
                 href={`/patient/${MARIA_ID}`}
-                className="inline-flex h-11 items-center rounded-lg border border-line bg-card px-5 font-medium hover:bg-muted"
+                className="inline-flex min-h-11 items-center rounded-lg border border-line bg-card px-5 font-medium hover:bg-muted"
               >
                 See Maria&apos;s phone
               </Link>
@@ -67,7 +66,7 @@ export default function Home() {
 
           <div className="rounded-2xl border border-line bg-card p-6 lg:p-8">
             <p className="font-heading text-7xl font-bold text-primary tabular sm:text-8xl">29%</p>
-            <p className="mt-3 text-lg">of new branded prescriptions never reach the patient.</p>
+            <p className="mt-3 text-lg">Almost a third of new branded prescriptions never reach the patient.</p>
             <p className="mt-2 text-sm text-muted-foreground">
               Most drop between the doctor&apos;s decision and the pharmacy counter: prior auth, copay shock,
               and nobody watching the handoff.
@@ -104,7 +103,10 @@ export default function Home() {
 
       <footer className="border-t border-line">
         <div className="mx-auto flex max-w-6xl flex-col gap-3 px-5 py-6 text-sm text-muted-foreground lg:flex-row lg:items-center lg:justify-between lg:px-8">
-          <p>Built at HackGT 13 · Synthetic data only · Payer and Medvantx are simulated</p>
+          <p className="max-w-2xl" data-testid="honesty-line">
+            The insurer and Medvantx are simulated with shapes that mirror the real systems. All patient data is
+            synthetic. Clinical content comes only from the FDA drug label.
+          </p>
           <ul className="flex flex-wrap gap-x-5 gap-y-1 font-medium" aria-label="Sponsors">
             {SPONSORS.map((s) => (
               <li key={s}>{s}</li>

@@ -6,6 +6,7 @@ import { toast } from "sonner";
 
 import { FIXTURE_PA } from "@/components/fixtures";
 import { PA_STATUS } from "@/components/labels";
+import { SimulatedBadge } from "@/components/SimulatedBadge";
 import { TONE_CLASSES, type Tone } from "@/components/StatusPill";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
@@ -123,15 +124,19 @@ export function PaDrawer({ open, onOpenChange, rxId, event, onApprove }: PaDrawe
           <SheetTitle>Prior authorization letter</SheetTitle>
           <SheetDescription>Every clinical claim cites the FDA label.</SheetDescription>
           {status && (
-            <span
-              data-testid="pa-status"
-              className={cn(
-                "mt-1 inline-flex h-6 w-fit items-center rounded-full border px-2 text-xs font-medium",
-                TONE_CLASSES[status.tone]
-              )}
-            >
-              {status.label}
-            </span>
+            <div className="mt-1 flex flex-wrap items-center gap-2">
+              <span
+                data-testid="pa-status"
+                className={cn(
+                  "inline-flex h-6 w-fit items-center rounded-full border px-2 text-xs font-medium",
+                  TONE_CLASSES[status.tone]
+                )}
+              >
+                {status.label}
+              </span>
+              {/* Submission and decisions come from the mock payer. */}
+              {(event?.status === "approved" || (pa && pa.status !== "draft")) && <SimulatedBadge label="Simulated payer" />}
+            </div>
           )}
         </SheetHeader>
 
@@ -210,7 +215,7 @@ export function PaDrawer({ open, onOpenChange, rxId, event, onApprove }: PaDrawe
                           href={c.url}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="mt-1.5 inline-flex items-center gap-1 rounded text-sm font-medium text-primary underline-offset-2 hover:underline"
+                          className="mt-0.5 inline-flex min-h-11 items-center gap-1 rounded text-sm font-medium text-primary underline-offset-2 hover:underline"
                         >
                           View on DailyMed <ExternalLink aria-hidden className="size-3.5" />
                           <span className="sr-only">(opens in a new tab)</span>
@@ -288,7 +293,7 @@ function Inline({ text, onCite, citeCount }: { text: string; onCite: (n: number)
                 type="button"
                 onClick={() => onCite(n)}
                 aria-label={`Citation ${n}`}
-                className="mx-0.5 rounded px-0.5 align-super font-mono text-xs font-bold text-primary hover:underline focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:outline-none"
+                className="relative mx-0.5 rounded px-0.5 align-super font-mono text-xs font-bold text-primary before:absolute before:top-1/2 before:left-1/2 before:size-11 before:-translate-1/2 before:content-[''] hover:underline focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:outline-none"
               >
                 [{n}]
               </button>

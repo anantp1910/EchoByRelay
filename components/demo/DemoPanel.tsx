@@ -132,6 +132,9 @@ export function DemoPanel() {
                 Couldn&apos;t read the clock: {error}
               </p>
             )}
+            {!supabase && day === null && (
+              <p className="mt-1 text-sm text-muted-foreground">Offline fixtures: no Supabase keys, so the clock isn&apos;t live.</p>
+            )}
           </div>
           <p className="text-sm text-muted-foreground sm:max-w-[22ch] sm:text-right">
             Simulated time, live for everyone. All watchdog rules read this clock.
@@ -159,28 +162,28 @@ export function DemoPanel() {
                 )}
                 <span className="flex flex-col">
                   <span className="text-base font-bold">{label}</span>
-                  <span className="text-sm font-normal text-muted-foreground">{ready ? hint : "Coming in A6"}</span>
+                  {/* Dark outline buttons tint the ground; muted ink drops to 4.25:1 there. */}
+                  <span className="text-sm font-normal text-muted-foreground dark:text-foreground/85">
+                    {ready ? hint : "Coming in A6"}
+                  </span>
                 </span>
               </Button>
             );
           })}
         </section>
 
-        <p className="text-sm text-muted-foreground">
-          Portals:{" "}
-          <Link className="rounded text-primary underline underline-offset-4" href="/doctor">
-            doctor
-          </Link>
-          ,{" "}
-          <Link className="rounded text-primary underline underline-offset-4" href={`/patient/${MARIA_ID}`}>
-            patient
-          </Link>
-          ,{" "}
-          <Link className="rounded text-primary underline underline-offset-4" href="/pharma">
-            pharma
-          </Link>
-          .
-        </p>
+        <nav aria-label="Portals" className="flex flex-wrap items-center gap-2 text-sm">
+          <span className="text-muted-foreground">Portals:</span>
+          {[
+            { href: "/doctor", label: "Doctor" },
+            { href: `/patient/${MARIA_ID}`, label: "Patient" },
+            { href: "/pharma", label: "Pharma" },
+          ].map((l) => (
+            <Button key={l.href} variant="outline" size="sm" nativeButton={false} render={<Link href={l.href} />}>
+              {l.label}
+            </Button>
+          ))}
+        </nav>
       </main>
     </div>
   );

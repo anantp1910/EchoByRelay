@@ -14,7 +14,9 @@ export function CountUp({ value, format }: { value: number; format: (n: number) 
       mv.set(value);
       return;
     }
-    const controls = animate(mv, value, { duration: 0.9, ease: "easeOut" });
+    // ~700 ms by design: the KPI count-up is the pharma scene's payoff on the
+    // projector (the one exception to the 150–250 ms motion rule).
+    const controls = animate(mv, value, { duration: 0.7, ease: "easeOut" });
     return () => controls.stop();
   }, [mv, value, reduce]);
 

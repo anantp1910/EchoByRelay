@@ -8,6 +8,7 @@ import { useState } from "react";
 import { FixtureBadge, RelayMark } from "@/components/AppHeader";
 import { PROGRAM, isRouterProgram } from "@/components/labels";
 import { LocalTime } from "@/components/LocalTime";
+import { SimulatedBadge } from "@/components/SimulatedBadge";
 import { StatusPill } from "@/components/StatusPill";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -236,7 +237,7 @@ export function PatientPortal({ patientId }: { patientId: string }) {
           <SearchX aria-hidden className="size-10 text-muted-foreground" />
           <h1 className="text-2xl font-bold">{t.notFound}</h1>
           <p className="text-muted-foreground">{t.notFoundHint}</p>
-          <Link href="/" className="mt-2 rounded font-medium text-primary underline underline-offset-4">
+          <Link href="/" className="mt-2 inline-flex min-h-11 items-center rounded font-medium text-primary underline underline-offset-4">
             {t.home}
           </Link>
         </main>
@@ -280,7 +281,10 @@ export function PatientPortal({ patientId }: { patientId: string }) {
                     <span className="font-medium" data-testid="rx-program">
                       {t.program[program]}
                     </span>
-                    <span className="block text-base text-muted-foreground">{PROGRAM[program].label}</span>
+                    <span className="flex flex-wrap items-center gap-2 text-base text-muted-foreground">
+                      {PROGRAM[program].label}
+                      <SimulatedBadge />
+                    </span>
                   </Row>
                 )}
               </dl>
@@ -300,7 +304,10 @@ export function PatientPortal({ patientId }: { patientId: string }) {
 
           {viewer === "member" && member?.can_pay && (
             <Card>
-              <CardTitle icon={CreditCard}>{t.pay}</CardTitle>
+              <div className="flex items-center justify-between gap-2">
+                <CardTitle icon={CreditCard}>{t.pay}</CardTitle>
+                <SimulatedBadge label="Simulated Visa" />
+              </div>
               {payable && order ? (
                 <>
                   <p className="mt-2">{t.toPay(money(Number(order.amount_usd ?? 0)))}</p>
@@ -368,7 +375,7 @@ function ViewerSwitch({
             onClick={() => onChange(v)}
             data-testid={`viewer-${v}`}
             className={cn(
-              "h-10 min-w-20 rounded-lg px-4 font-medium",
+              "h-11 min-w-20 rounded-lg px-4 font-medium",
               viewer === v ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-muted"
             )}
           >
@@ -459,7 +466,7 @@ function LangToggle({ lang, onChange }: { lang: Language; onChange: (l: Language
           onClick={() => onChange(l)}
           data-testid={`lang-${l}`}
           className={cn(
-            "h-10 min-w-12 rounded-full px-3 text-base font-bold",
+            "h-11 min-w-12 rounded-full px-3 text-base font-bold",
             lang === l ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-muted"
           )}
         >
@@ -504,14 +511,14 @@ function ProgressTracker({ steps, current, nowLabel }: { steps: string[]; curren
               <span
                 aria-hidden
                 className={cn(
-                  "absolute top-8 bottom-0 left-4 w-0.5 -translate-x-1/2 transition-colors duration-300",
+                  "absolute top-8 bottom-0 left-4 w-0.5 -translate-x-1/2 transition-colors duration-200",
                   done ? "bg-ok" : "bg-line"
                 )}
               />
             )}
             <span
               className={cn(
-                "relative z-10 grid size-8 shrink-0 place-items-center rounded-full border-2 font-mono text-sm font-bold transition-colors duration-300",
+                "relative z-10 grid size-8 shrink-0 place-items-center rounded-full border-2 font-mono text-sm font-bold transition-colors duration-200",
                 done && "border-ok bg-ok text-white dark:text-[#062326]",
                 active && "border-primary bg-card text-primary",
                 !done && !active && "border-line bg-card text-muted-foreground"

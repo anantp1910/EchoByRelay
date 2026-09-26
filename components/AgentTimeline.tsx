@@ -29,6 +29,7 @@ import { cn } from "@/lib/utils";
 import { isRouterProgram, PROGRAM } from "./labels";
 import { StatusPill, TONE_CLASSES, toneFor, type Tone } from "./StatusPill";
 import { LocalTime } from "./LocalTime";
+import { SimulatedBadge } from "./SimulatedBadge";
 
 const AGENT: Record<string, { icon: LucideIcon; label: string }> = {
   trustGate: { icon: ShieldCheck, label: "Trust gate" },
@@ -250,14 +251,7 @@ function TimelineStep({
       <div className="min-w-0 flex-1 pt-0.5">
         <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
           <span className="text-xs font-bold tracking-wide text-muted-foreground uppercase">{meta.label}</span>
-          {event.simulated && (
-            <span
-              title="Backed by a mock that mirrors the real API"
-              className="rounded border border-line px-1.5 text-[0.7rem] leading-5 text-muted-foreground"
-            >
-              Simulated
-            </span>
-          )}
+          {event.simulated && <SimulatedBadge />}
           <LocalTime iso={event.created_at} className="ml-auto" />
         </div>
 

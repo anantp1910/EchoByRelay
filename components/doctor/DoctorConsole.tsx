@@ -178,7 +178,12 @@ export function DoctorConsole() {
 
         <aside aria-label="Alerts">
           <Panel title="Alerts" count={doctor.state === "ready" ? doctor.alerts.length : undefined} icon={Bell}>
-            <AlertsInbox alerts={doctor.alerts} loading={doctor.state === "loading"} onAction={handleAlert} />
+            <AlertsInbox
+              alerts={doctor.alerts}
+              state={doctor.state}
+              onRetry={doctor.retry}
+              onAction={handleAlert}
+            />
           </Panel>
         </aside>
       </div>
@@ -339,14 +344,29 @@ function PatientHeader({ row, loading }: { row: PatientRow | null; loading: bool
 
 function AlertsInbox({
   alerts,
-  loading,
+  state,
+  onRetry,
   onAction,
 }: {
   alerts: AlertRow[];
-  loading: boolean;
+  state: "loading" | "ready" | "error";
+  onRetry: () => void;
   onAction: (alert: AlertRow) => void;
 }) {
-  if (loading) return <RowSkeletons />;
+  if (state === "loading") return <RowSkeletons />;
+  if (state === "error") {
+    // Never "All clear" when we simply couldn't check.
+    return (
+      <div role="alert" className="flex flex-col items-start gap-2 p-2 text-sm text-block-strong">
+        <span className="inline-flex items-center gap-1.5 font-medium">
+          <TriangleAlert aria-hidden className="size-4" /> Couldn&apos;t load alerts
+        </span>
+        <Button variant="outline" size="sm" onClick={onRetry}>
+          <RotateCcw aria-hidden /> Try again
+        </Button>
+      </div>
+    );
+  }
   if (alerts.length === 0) {
     return (
       <div className="flex flex-col items-center gap-2 px-2 py-8 text-center">

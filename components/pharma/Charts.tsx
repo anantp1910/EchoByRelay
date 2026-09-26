@@ -1,5 +1,6 @@
 "use client";
 
+import { useReducedMotion } from "framer-motion";
 import {
   Bar,
   BarChart,
@@ -25,6 +26,7 @@ const TICK = { fill: "var(--color-muted-foreground)", fontSize: 12 };
 const AXIS_LABEL = { fill: "var(--color-muted-foreground)", fontSize: 12 };
 
 const int = new Intl.NumberFormat("en-US");
+const ANIM_MS = 250;
 
 function TipBox({ title, value }: { title: string; value: string }) {
   return (
@@ -36,6 +38,7 @@ function TipBox({ title, value }: { title: string; value: string }) {
 }
 
 export function RescuedLineChart({ series }: { series: PharmaMetricsRes["rescuedSeries"] }) {
+  const reduce = useReducedMotion();
   const last = series.at(-1);
   return (
     <ResponsiveContainer width="100%" height={260}>
@@ -74,7 +77,8 @@ export function RescuedLineChart({ series }: { series: PharmaMetricsRes["rescued
           strokeWidth={2}
           dot={false}
           activeDot={{ r: 5, stroke: "var(--color-card)", strokeWidth: 2, fill: MARK }}
-          isAnimationActive
+          isAnimationActive={!reduce}
+          animationDuration={ANIM_MS}
         >
           {/* Selective direct label: the latest value only. */}
           <LabelList
@@ -100,6 +104,7 @@ export function programRows(mix: PharmaMetricsRes["programMix"]) {
 }
 
 export function ProgramMixChart({ mix }: { mix: PharmaMetricsRes["programMix"] }) {
+  const reduce = useReducedMotion();
   const rows = programRows(mix);
   return (
     <ResponsiveContainer width="100%" height={Math.max(220, rows.length * 34 + 40)}>
@@ -123,7 +128,14 @@ export function ProgramMixChart({ mix }: { mix: PharmaMetricsRes["programMix"] }
             ) : null
           }
         />
-        <Bar dataKey="count" fill={MARK} radius={[0, 4, 4, 0]} maxBarSize={20}>
+        <Bar
+          dataKey="count"
+          fill={MARK}
+          radius={[0, 4, 4, 0]}
+          maxBarSize={20}
+          isAnimationActive={!reduce}
+          animationDuration={ANIM_MS}
+        >
           <LabelList
             dataKey="count"
             position="right"

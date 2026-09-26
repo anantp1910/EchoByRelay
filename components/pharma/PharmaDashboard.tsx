@@ -254,8 +254,10 @@ function ChartCard({
         ) : (
           <>
             {children}
-            <details className="mt-2 text-sm">
-              <summary className="cursor-pointer rounded text-muted-foreground hover:text-foreground">View as table</summary>
+            <details className="mt-1 text-sm">
+              <summary className="cursor-pointer rounded py-3 leading-5 text-muted-foreground hover:text-foreground">
+                View as table
+              </summary>
               <div className="mt-2 overflow-x-auto">{table}</div>
             </details>
           </>
@@ -317,7 +319,7 @@ function AuditTrail({ rows, state, onRetry }: { rows: AuditLog[]; state: Load; o
   );
 
   const selectCls =
-    "h-9 rounded-lg border border-line bg-background px-2 text-sm focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:outline-none";
+    "h-11 rounded-lg border border-line bg-background px-2 text-sm focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:outline-none sm:h-9";
 
   return (
     <section aria-labelledby="audit-title" className="min-w-0 rounded-xl border border-line bg-card p-5">
@@ -372,7 +374,7 @@ function AuditTrail({ rows, state, onRetry }: { rows: AuditLog[]; state: Load; o
               value={q}
               onChange={(e) => setQ(e.target.value)}
               placeholder="action, actor, id"
-              className="h-9 pl-8"
+              className="h-11 pl-8 sm:h-9"
               data-testid="audit-search"
             />
           </div>

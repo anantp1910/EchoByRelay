@@ -20,7 +20,7 @@ const NAV = [
 
 export function RelayMark({ className }: { className?: string }) {
   return (
-    <Link href="/" className={cn("flex items-center gap-2 rounded-md font-heading text-lg font-bold", className)}>
+    <Link href="/" className={cn("flex min-h-11 items-center gap-2 rounded-md font-heading text-lg font-bold", className)}>
       <svg aria-hidden viewBox="0 0 24 24" className="size-6 text-primary">
         <circle cx="5" cy="12" r="3" fill="currentColor" />
         <circle cx="19" cy="12" r="3" fill="currentColor" />

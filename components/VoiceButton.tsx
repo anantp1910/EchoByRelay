@@ -257,7 +257,7 @@ export function VoiceButton({
             data-testid="voice-text-input"
           />
           <Button type="submit" size="lg" className="h-10" disabled={disabled || processing || !typed.trim()}>
-            {processing ? <LoaderCircle aria-hidden className="animate-spin" /> : <Send aria-hidden />}
+            {processing ? <LoaderCircle aria-hidden className="animate-spin motion-reduce:animate-none" /> : <Send aria-hidden />}
             Send
           </Button>
         </form>

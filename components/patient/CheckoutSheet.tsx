@@ -4,6 +4,7 @@ import { motion, useReducedMotion } from "framer-motion";
 import { Check, CircleX, CreditCard, Fingerprint, LoaderCircle, Repeat, Store, TriangleAlert } from "lucide-react";
 import { useId, useState } from "react";
 
+import { SimulatedBadge } from "@/components/SimulatedBadge";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { HAS_SUPABASE } from "@/components/useLiveEvents";
@@ -89,7 +90,7 @@ type Phase =
   | { kind: "unavailable" }
   | { kind: "error"; message: string };
 
-const STEP_DELAY = 0.28; // seconds between Visa steps ticking in
+const STEP_DELAY = 0.15; // seconds between Visa steps ticking in
 
 /** Rounded up to the next $5, so the default cap always covers the price. */
 const capFor = (amount: number) => Math.max(5, Math.ceil(amount / 5) * 5);
@@ -172,6 +173,9 @@ export function CheckoutSheet({ open, onOpenChange, orderId, amountUsd, payerMem
               <dt className="text-sm font-bold tracking-wide text-muted-foreground uppercase">{t.merchant}</dt>
               <dd className="mt-0.5 flex items-center gap-1.5 font-medium">
                 <Store aria-hidden className="size-4 text-muted-foreground" /> {t.merchantName}
+              </dd>
+              <dd className="mt-1">
+                <SimulatedBadge />
               </dd>
             </div>
             <div className="text-right">
@@ -314,7 +318,7 @@ function Result({
                 {s.ok ? <Check aria-hidden className="size-3.5" /> : <CircleX aria-hidden className="size-3.5" />}
               </span>
               <span className="flex-1">{t.steps[s.name] ?? s.name}</span>
-              {s.simulated && <span className="text-xs text-muted-foreground">Visa · sim</span>}
+              {s.simulated && <SimulatedBadge />}
             </motion.li>
           ))}
         </ol>
@@ -323,7 +327,7 @@ function Result({
       <motion.div
         initial={{ opacity: 0, scale: 0.9 }}
         animate={{ opacity: 1, scale: 1 }}
-        transition={{ delay: finalDelay, type: reduce ? "tween" : "spring", stiffness: 260, damping: 18 }}
+        transition={{ delay: finalDelay, duration: 0.2, ease: "easeOut" }}
         className="flex flex-col items-center gap-2 py-2 text-center"
         data-testid={paid ? "checkout-success" : "checkout-declined"}
       >
@@ -339,7 +343,7 @@ function Result({
               strokeLinejoin="round"
               initial={{ pathLength: reduce ? 1 : 0 }}
               animate={{ pathLength: 1 }}
-              transition={{ delay: finalDelay + 0.15, duration: 0.35 }}
+              transition={{ delay: finalDelay + 0.1, duration: 0.25 }}
             />
           </svg>
         ) : (
