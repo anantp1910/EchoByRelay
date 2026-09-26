@@ -43,7 +43,7 @@ export default function Home() {
           <div>
             <p className="mb-4 text-sm font-bold tracking-widest text-primary uppercase">Access router</p>
             <h1 className="text-4xl leading-[1.05] font-bold text-balance sm:text-6xl">
-              Every prescription, all the way to the patient.
+              Relay doesn&apos;t take notes. It gets the medicine to the patient.
             </h1>
             <p className="mt-6 max-w-xl text-lg text-muted-foreground">
               Relay carries every prescription from the doctor&apos;s decision to the patient&apos;s hands.

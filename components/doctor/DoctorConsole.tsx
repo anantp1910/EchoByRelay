@@ -24,6 +24,7 @@ import { MARIA_ID } from "@/lib/demo/constants";
 import { cn } from "@/lib/utils";
 
 import { PaDrawer } from "./PaDrawer";
+import { RelaySummary } from "./RelaySummary";
 import { useDoctorData } from "./useDoctorData";
 import { APPROVE_COMMAND } from "./voiceCommands";
 
@@ -60,10 +61,18 @@ export function DoctorConsole() {
       memberId === null ? patientFirst : (memberNames.get(memberId)?.split(" ")[0] ?? "Care circle"),
     [patientFirst, memberNames]
   );
-  const events = useMemo(() => {
-    const agentEvents = rxId ? live.events.filter((e) => e.rx_id === rxId || e.rx_id === null) : live.events;
-    return live.state === "ready" ? [...agentEvents, ...checkInEvents(checkins.checkIns, nameFor)] : agentEvents;
-  }, [live.events, live.state, rxId, checkins.checkIns, nameFor]);
+  const agentEvents = useMemo(
+    () => (rxId ? live.events.filter((e) => e.rx_id === rxId || e.rx_id === null) : live.events),
+    [live.events, rxId]
+  );
+  const events = useMemo(
+    () => (live.state === "ready" ? [...agentEvents, ...checkInEvents(checkins.checkIns, nameFor)] : agentEvents),
+    [agentEvents, live.state, checkins.checkIns, nameFor]
+  );
+  const recipients = useMemo(
+    () => [patientFirst, ...(selected ? doctor.circleOf(selected.patient.id) : []).map((n) => n.split(" ")[0])],
+    [patientFirst, selected, doctor]
+  );
   const latestCheckInFor = (patientId: string | null): CheckInView | null =>
     patientId && checkins.day !== null ? (visibleCheckIns(patientId, checkins.day)[0] ?? null) : null;
   const pending = events.findLast((e) => e.status === "needs_approval");
@@ -181,6 +190,14 @@ export function DoctorConsole() {
               </h2>
               <span className="text-xs text-muted-foreground">{live.source === "live" ? "Live" : "Offline fixtures"}</span>
             </div>
+            {live.state === "ready" && (
+              <RelaySummary
+                events={agentEvents}
+                checkIns={checkins.checkIns}
+                patientFirstName={patientFirst}
+                recipients={recipients}
+              />
+            )}
             <AgentTimeline
               events={events}
               state={live.state}

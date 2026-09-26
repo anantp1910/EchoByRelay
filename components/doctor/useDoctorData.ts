@@ -31,7 +31,7 @@ function rxNote(rx: Prescription, enrollment?: Enrollment, order?: Order): strin
 
 interface Tables {
   patients: PatientLite[];
-  circle: { id: string; name: string }[];
+  circle: { id: string; patient_id: string; name: string }[];
   prescriptions: Prescription[];
   alerts: Alert[];
   enrollments: Enrollment[];
@@ -85,7 +85,7 @@ export function useDoctorData() {
           client.from("alerts").select("*").order("created_at", { ascending: false }).limit(200),
           client.from("enrollments").select("*").order("created_at", { ascending: false }).limit(500),
           client.from("orders").select("*").order("created_at", { ascending: false }).limit(500),
-          client.from("care_circle").select("id, name"),
+          client.from("care_circle").select("id, patient_id, name"),
         ]);
         if (cancelled) return;
         const err = [patients, prescriptions, alerts, enrollments, orders, circle].find((r) => r.error)?.error;
@@ -164,11 +164,13 @@ export function useDoctorData() {
     return { rows, alerts };
   }, [live, t]);
 
-  // Care-circle member names (e.g. who answered a check-in).
-  const memberNames = useMemo(
-    () => new Map((live ? t.circle : [FIXTURE_ANA]).map((m) => [m.id, m.name])),
-    [live, t.circle]
+  // Care-circle members (e.g. who answered a check-in, who was notified).
+  const circle = useMemo(() => (live ? t.circle : [FIXTURE_ANA]), [live, t.circle]);
+  const memberNames = useMemo(() => new Map(circle.map((m) => [m.id, m.name])), [circle]);
+  const circleOf = useCallback(
+    (patientId: string) => circle.filter((m) => m.patient_id === patientId).map((m) => m.name),
+    [circle]
   );
 
-  return { ...derived, memberNames, state, error, retry };
+  return { ...derived, memberNames, circleOf, state, error, retry };
 }
