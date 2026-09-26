@@ -13,6 +13,7 @@
     "smoke": "tsx scripts/smoke.ts",
     "test:intake": "tsx scripts/intake-cases.ts",
     "test:router": "tsx scripts/router-cases.ts",
+    "test:checkout": "tsx scripts/checkout-cases.ts",
     "live:chain": "tsx scripts/live-chain.ts",
     "fetch:label": "tsx scripts/fetch-label.ts"
   },

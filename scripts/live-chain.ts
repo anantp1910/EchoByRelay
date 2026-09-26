@@ -77,8 +77,9 @@ async function main(): Promise<void> {
     console.error("router needs_approval never appeared");
     process.exit(1);
   }
+  const enrollStart = Date.now();
   const a1 = await post("/api/approve", { eventId: routerEvent.id, decision: "approve", actor: "doctor", via: "voice" });
-  console.log(`2) approve enroll (${routerEvent.data.program}) -> ${a1.status} ${JSON.stringify(a1.json)}`);
+  console.log(`2) approve enroll (${routerEvent.data.program}) -> ${a1.status} in ${Date.now() - enrollStart}ms ${JSON.stringify(a1.json)}`);
 
   // 3. approve submit_pa (paDrafter runs in after(); wait for its needs_approval)
   const paEvent = await waitForEvent(rxId, "paDrafter");
@@ -124,6 +125,19 @@ async function main(): Promise<void> {
     .eq("id", rxId)
     .maybeSingle();
   console.log(`\nprescription: ${JSON.stringify(rx)}`);
+
+  // Patient/family messages produced by patientComms.
+  const { data: msgs } = await db
+    .from("messages")
+    .select("recipient_member_id, lang, body, created_at")
+    .eq("patient_id", MARIA_ID)
+    .order("created_at", { ascending: false })
+    .limit(6);
+  console.log(`\nmessages (latest ${msgs?.length ?? 0}):`);
+  for (const m of (msgs ?? []).reverse()) {
+    const who = m.recipient_member_id ? "care-circle" : "patient";
+    console.log(`  [${String(m.lang).toUpperCase()} ${who}] ${m.body}`);
+  }
 }
 
 main().catch((err) => {

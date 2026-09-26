@@ -100,6 +100,7 @@ export interface CareCircleMember {
   name: string;
   relation: string | null;
   can_pay: boolean;
+  lang: Language;
   is_seed: boolean;
   created_at: string;
 }
@@ -196,6 +197,7 @@ export interface Alert {
 export interface Message {
   id: string;
   patient_id: string;
+  recipient_member_id: string | null; // null = the patient
   sender: string | null;
   lang: Language;
   body: string;
