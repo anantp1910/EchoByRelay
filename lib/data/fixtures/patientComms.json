@@ -1,0 +1,28 @@
+{
+  "messages": [
+    {
+      "event": "enrolled",
+      "to": "patient",
+      "lang": "es",
+      "body": "Buenas noticias: su inscripción en Medvantx Bridge para Jardiance ya está lista. Su medicina se enviará en unos 2 días. No necesita hacer nada ahora; su equipo de atención le avisará."
+    },
+    {
+      "event": "enrolled",
+      "to": "caregiver1",
+      "lang": "en",
+      "body": "Your mother Maria is now enrolled in Medvantx Bridge for Jardiance. Her medicine will ship in about 2 days. You're getting this as Maria's daughter."
+    },
+    {
+      "event": "pa_submitted",
+      "to": "patient",
+      "lang": "es",
+      "body": "Su equipo de atención envió la autorización previa de Jardiance a su plan. Le avisaremos la decisión. Mientras tanto, su suministro de Medvantx Bridge mantiene su tratamiento sin interrupción."
+    },
+    {
+      "event": "pa_submitted",
+      "to": "caregiver1",
+      "lang": "en",
+      "body": "The care team sent the prior authorization for your mother Maria's Jardiance to her plan. We'll share the plan's decision. Her Medvantx Bridge supply keeps treatment going in the meantime."
+    }
+  ]
+}

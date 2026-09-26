@@ -1,0 +1,20 @@
+{
+  "rationaleMd": "Jardiance is indicated to improve glycemic control in adults with type 2 diabetes mellitus [1]. Jardiance is indicated to reduce the risk of cardiovascular death and hospitalization for heart failure in adults with heart failure [2]. The recommended dose of JARDIANCE is 10 mg once daily in the morning, taken with or without food [3].",
+  "citations": [
+    {
+      "n": 1,
+      "section": "Indications and Usage",
+      "quote": "to improve glycemic control in adults with type 2 diabetes mellitus."
+    },
+    {
+      "n": 2,
+      "section": "Indications and Usage",
+      "quote": "to reduce the risk of cardiovascular death and hospitalization for heart failure in adults with heart failure."
+    },
+    {
+      "n": 3,
+      "section": "Dosage and Administration",
+      "quote": "The recommended dose of JARDIANCE is 10 mg once daily in the morning, taken with or without food."
+    }
+  ]
+}

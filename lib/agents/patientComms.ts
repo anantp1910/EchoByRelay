@@ -38,8 +38,13 @@ interface Recipient {
   canPay?: boolean;
 }
 
+// `event` is optional: the live model omits it; the shared offline fixture
+// (lib/data/fixtures/patientComms.json) tags each message so one file can hold
+// several events without sending the wrong event's text.
 const MessagesSchema = z.object({
-  messages: z.array(z.object({ to: z.string(), lang: z.enum(["es", "en"]), body: z.string().min(1) })),
+  messages: z.array(
+    z.object({ to: z.string(), lang: z.enum(["es", "en"]), body: z.string().min(1), event: z.string().optional() })
+  ),
 });
 
 type Facts = Record<string, string | number>;
@@ -235,7 +240,7 @@ async function draftMessages(
     const byKey: Record<string, string> = {};
     let ok = true;
     for (const r of recipients) {
-      const m = res.messages.find((x) => x.to === r.promptKey && x.lang === r.lang);
+      const m = res.messages.find((x) => x.to === r.promptKey && x.lang === r.lang && (!x.event || x.event === event));
       if (!m || !isValidMessage(m.body, drug, allowed)) {
         ok = false;
         break;

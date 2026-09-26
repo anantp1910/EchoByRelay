@@ -12,8 +12,14 @@ export type Load = "loading" | "ready" | "error";
 
 type PatientLite = Pick<Patient, "id" | "name" | "zip">;
 
-const FIXTURE_METRICS: PharmaMetricsRes = {
+/** Live metrics (sample: false) or the offline fixture below (sample: true). */
+export type DashboardMetrics = PharmaMetricsRes | (Omit<PharmaMetricsRes, "sample"> & { sample: true });
+
+// Fake data for the no-Supabase preview only; flagged so the page shows "Sample data".
+const FIXTURE_METRICS: DashboardMetrics = {
   ...FIXTURE_KPIS,
+  sample: true,
+  paHoursSaved: 3, // 9 fake PAs x 20 min
   rescuedSeries: [
     { day: 0, count: 3 },
     { day: 8, count: 14 },
@@ -42,7 +48,7 @@ const REFRESH_MS = 1000;
  */
 export function usePharmaData() {
   const live = supabase !== null;
-  const [metrics, setMetrics] = useState<PharmaMetricsRes | null>(live ? null : FIXTURE_METRICS);
+  const [metrics, setMetrics] = useState<DashboardMetrics | null>(live ? null : FIXTURE_METRICS);
   const [metricsState, setMetricsState] = useState<Load>(live ? "loading" : "ready");
   const [paSubmitted, setPaSubmitted] = useState<number | null>(live ? null : 9);
   const [audit, setAudit] = useState<AuditLog[]>([]);

@@ -42,13 +42,15 @@ on conflict (id) do update set
   is_seed        = excluded.is_seed;
 
 -- Ana: Maria's daughter, in the care circle, able to pay (Visa checkout later).
-insert into care_circle (id, patient_id, name, relation, can_pay, is_seed)
+-- English-speaking: her messages are in English while Maria's are in Spanish.
+insert into care_circle (id, patient_id, name, relation, can_pay, lang, is_seed)
 values (
   '22222222-2222-2222-2222-222222222222',
   '11111111-1111-1111-1111-111111111111',
   'Ana González',
   'daughter',
   true,
+  'en',
   true
 )
 on conflict (id) do update set
@@ -56,6 +58,7 @@ on conflict (id) do update set
   name       = excluded.name,
   relation   = excluded.relation,
   can_pay    = excluded.can_pay,
+  lang       = excluded.lang,
   is_seed    = excluded.is_seed;
 
 -- ============================================================================

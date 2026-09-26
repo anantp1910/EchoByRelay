@@ -64,6 +64,6 @@ npm run rescue -- --reset-confirmed
 
 This script performs the scenario writes through HTTP and uses Supabase only for verification reads. It prints PASS/FAIL, day, final metrics, timeline titles, alert resolution flags, and route timings. It refuses to reset unless the explicit flag is supplied.
 
-Fixture handoff for Vedant: `patientComms.json` messages use `{ to, lang, body }`, with `to: "patient"`, `"caregiver1"`, etc. The fixture is absent on this branch; deterministic templates cover demo mode.
+Fixtures (fixture mode = `DEMO_MODE=true` or no `XAI_API_KEY`): `patientComms.json` messages use `{ event, to, lang, body }` with `to: "patient"`, `"caregiver1"`; `event` (`enrolled`, `pa_submitted`) keeps one file from sending the wrong event's text. The Maria/Ana wording assumes the Maria demo. `paLetter.json` is the latest AI PA rationale from the DB, accepted only after its quotes validated against `openfda-jardiance.json`.
 
 The simulated payer, Medvantx, and Visa remain mocks. This is a synthetic-data demo, not a production clinical or payment deployment.

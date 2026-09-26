@@ -11,15 +11,13 @@ import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useLiveEvents } from "@/components/useLiveEvents";
-import type { PharmaMetricsRes } from "@/lib/api/contracts";
 import type { AgentEvent, AuditLog, Json } from "@/lib/db/types";
 import { cn } from "@/lib/utils";
 
 import { ProgramMixChart, RescuedLineChart, programRows } from "./Charts";
 import { CountUp } from "./CountUp";
 import { coarseLocation, patientTag, redactName } from "./deid";
-import { HOURS_PER_MANUAL_PA, METRICS_ARE_SAMPLE } from "./sample";
-import { usePharmaData, type Load } from "./usePharmaData";
+import { usePharmaData, type DashboardMetrics, type Load } from "./usePharmaData";
 
 const int = new Intl.NumberFormat("en-US");
 const oneDecimal = new Intl.NumberFormat("en-US", { minimumFractionDigits: 1, maximumFractionDigits: 1 });
@@ -55,13 +53,14 @@ export function PharmaDashboard() {
           <p className="mt-1 text-muted-foreground">Every prescription Relay carried, from decision to delivery.</p>
         </div>
 
-        <Kpis metrics={data.metrics} state={data.metricsState} paSubmitted={data.paSubmitted} onRetry={data.retry} />
+        <Kpis metrics={data.metrics} state={data.metricsState} onRetry={data.retry} />
 
         <section className="grid gap-4 lg:grid-cols-2" aria-label="Charts">
           <ChartCard
             title="Scripts rescued over time"
             subtitle="Cumulative, by demo day"
             state={data.metricsState}
+            sample={data.metrics?.sample ?? false}
             onRetry={data.retry}
             empty={!data.metrics?.rescuedSeries.length}
             table={
@@ -80,6 +79,7 @@ export function PharmaDashboard() {
             title="Program mix"
             subtitle="Prescriptions by access path"
             state={data.metricsState}
+            sample={data.metrics?.sample ?? false}
             onRetry={data.retry}
             empty={!data.metrics}
             table={
@@ -123,8 +123,8 @@ export function PharmaDashboard() {
   );
 }
 
-function SampleBadge() {
-  if (!METRICS_ARE_SAMPLE) return null;
+function SampleBadge({ sample }: { sample: boolean }) {
+  if (!sample) return null;
   return (
     <span
       title="The metrics route still returns placeholder numbers"
@@ -139,12 +139,10 @@ function SampleBadge() {
 function Kpis({
   metrics,
   state,
-  paSubmitted,
   onRetry,
 }: {
-  metrics: PharmaMetricsRes | null;
+  metrics: DashboardMetrics | null;
   state: Load;
-  paSubmitted: number | null;
   onRetry: () => void;
 }) {
   const tiles: { id: string; label: string; hint: string; value: number | null; format: (n: number) => string; sample: boolean }[] = [
@@ -167,10 +165,10 @@ function Kpis({
     {
       id: "pa-hours-saved",
       label: "PA hours saved",
-      hint: `est. at ${HOURS_PER_MANUAL_PA} h per PA`,
-      value: paSubmitted === null ? null : paSubmitted * HOURS_PER_MANUAL_PA,
-      format: (n) => `${int.format(Math.round(n))} h`,
-      sample: false,
+      hint: "Estimate · 20 min per PA (AMA survey average)",
+      value: metrics?.paHoursSaved ?? null,
+      format: (n) => `${oneDecimal.format(n)} h`,
+      sample: true,
     },
     {
       id: "bridge-cliffs",
@@ -188,7 +186,7 @@ function Kpis({
         <div key={k.id} className="flex flex-col rounded-xl border border-line bg-card p-4 lg:p-5" data-testid={`kpi-${k.id}`}>
           <div className="flex flex-wrap items-center justify-between gap-1">
             <p className="text-sm text-muted-foreground">{k.label}</p>
-            {k.sample && <SampleBadge />}
+            {k.sample && <SampleBadge sample={metrics?.sample ?? false} />}
           </div>
           <div className="mt-2 font-heading text-3xl font-bold tabular lg:text-4xl">
             {k.value !== null ? (
@@ -216,6 +214,7 @@ function ChartCard({
   title,
   subtitle,
   state,
+  sample,
   onRetry,
   empty,
   table,
@@ -224,6 +223,7 @@ function ChartCard({
   title: string;
   subtitle: string;
   state: Load;
+  sample: boolean;
   onRetry: () => void;
   empty: boolean;
   table: React.ReactNode;
@@ -236,7 +236,7 @@ function ChartCard({
           <h2 className="text-lg font-bold">{title}</h2>
           <p className="text-sm text-muted-foreground">{subtitle}</p>
         </div>
-        <SampleBadge />
+        <SampleBadge sample={sample} />
       </div>
       <div className="mt-4">
         {state === "loading" ? (
