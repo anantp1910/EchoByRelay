@@ -6,7 +6,7 @@
 // simulated agent_events so Person B's timeline + approval card have data:
 //   1. intake   "done"
 //   2. coverage "done"           ("PA required · $480 copay")
-//   3. router   "needs_approval" (data: { action:"enroll", program:"quick_start", rxId })
+//   3. router   "needs_approval" (data: { action:"enroll", program:"bridge", rxId })
 // If Supabase env vars are missing, it skips all DB writes and still returns a
 // valid { rxId } (a random UUID) so the app works before keys arrive.
 
@@ -58,9 +58,9 @@ export async function POST(request: NextRequest): Promise<Response> {
         patient_id: patientId,
         agent: "router",
         status: "needs_approval",
-        title: "Recommended: Medvantx Quick Start",
-        detail: "New to therapy, insured, PA required — enroll to start today.",
-        data: { action: "enroll", program: "quick_start", rxId },
+        title: "Recommended: Medvantx Bridge",
+        detail: "Already on therapy; new plan requires prior authorization.",
+        data: { action: "enroll", program: "bridge", rxId },
       },
     ]);
   }
