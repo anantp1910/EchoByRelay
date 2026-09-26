@@ -74,6 +74,7 @@ Each agent is a pure async function: `(input, ctx) => result`, and it MUST emit 
 8. **Human in the loop:** PA submission, program enrollment, and payment all need an explicit approval (doctor voice/click or payer passkey).
 9. **Secrets** only in `.env.local`. Never commit keys. Keep `.env.example` updated.
 10. **Demo clock:** all time logic uses `lib/clock.ts` `now()`, never `Date.now()` directly, so the demo panel can fast-forward days.
+11. **Contracts** in `lib/db/types.ts` and `lib/api/contracts.ts` change only with a team-chat heads-up; never rename or remove a field without one.
 
 ## UI rules
 
@@ -97,7 +98,7 @@ npm run demo:reset   # reset demo state + clock to day 0
 ## Working style for Claude
 
 - Three humans work in parallel, each with their own Claude session. Stay inside your person's folders; for anything else, propose the change instead of making it.
-  - Person A (Engine): `lib/` (except `lib/data/fixtures/`), `app/api/`, `supabase/schema.sql`
+  - Person A (Engine): `lib/` (except `lib/data/fixtures/`), `app/api/`, `supabase/schema.sql`, `scripts/`
   - Person B (Experience + Demo): page routes under `app/` (not `app/api/`), `components/`, `public/`
   - Person C (Integration + Ops): `lib/data/fixtures/`, `supabase/seed.sql`, `tests/`, `docs/`, `README.md`, `.env.example`, deploy config
 
