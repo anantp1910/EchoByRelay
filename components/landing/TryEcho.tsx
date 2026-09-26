@@ -1,6 +1,6 @@
 "use client";
 
-import Link from "next/link";
+import { ArrowUp } from "lucide-react";
 
 import { BRAND } from "@/components/brand";
 
@@ -26,16 +26,18 @@ export function TryEcho() {
           <h2 id="why-title" className="font-[family-name:var(--font-figtree)] text-[clamp(2.6rem,4.4vw,3.6rem)] leading-[1.02] font-normal tracking-[-0.015em]">
             Try {BRAND.name}
           </h2>
-          <p className="mt-6 text-base text-muted-foreground">Demo sign-in · no real accounts</p>
+          <p className="mt-6 max-w-md text-base text-muted-foreground">
+            Pick Doctor, Patient or Pharma at the top of the page. Demo sign-in · no real accounts.
+          </p>
           <div className="mt-6">
             <Magnetic>
-              <Link
-                href="/signin"
-                data-testid="try-signin"
-                className="inline-flex min-h-12 items-center rounded-full bg-foreground px-7 text-base text-background transition-transform duration-200 active:scale-[0.97] focus-visible:ring-4 focus-visible:ring-ring/50 focus-visible:outline-none"
+              <a
+                href="#top"
+                data-testid="try-top"
+                className="inline-flex min-h-12 items-center gap-2 rounded-full bg-foreground px-7 text-base text-background transition-transform duration-200 active:scale-[0.97] focus-visible:ring-4 focus-visible:ring-ring/50 focus-visible:outline-none"
               >
-                Sign in to {BRAND.name}
-              </Link>
+                <ArrowUp aria-hidden className="size-4" /> Back to the top
+              </a>
             </Magnetic>
           </div>
           <p className="mt-10 max-w-xl text-sm leading-relaxed text-muted-foreground" data-testid="honesty-line">

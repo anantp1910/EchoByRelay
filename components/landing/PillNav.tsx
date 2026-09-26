@@ -5,10 +5,11 @@ import Link from "next/link";
 import { useState } from "react";
 
 // Floating segmented pill (reference pattern): appears once the hero is behind you.
+// Same as the hero's top labels: the only way in.
 const ITEMS = [
-  { href: "#story", label: "The story" },
-  { href: "#people", label: "The people", hideSm: true },
-  { href: "#why", label: "Why" },
+  { href: "/signin?role=doctor", label: "Doctor" },
+  { href: "/signin?role=patient", label: "Patient" },
+  { href: "/signin?role=pharma", label: "Pharma" },
 ];
 
 export function PillNav() {
@@ -36,11 +37,11 @@ export function PillNav() {
           className="fixed top-[calc(env(safe-area-inset-top,0px)+0.75rem)] left-1/2 z-40 flex -translate-x-1/2 gap-1 rounded-2xl border border-white/70 bg-white/60 p-1 shadow-[0_10px_30px_-12px_rgba(40,48,64,0.35)] backdrop-blur-md dark:border-white/10 dark:bg-[#141b24]/70"
         >
           {ITEMS.map((i) => (
-            <a key={i.href} href={i.href} className={`${btn} ${i.hideSm ? "hidden sm:inline-flex" : ""}`}>
+            <Link key={i.href} href={i.href} className={btn} data-testid={`pill-${i.label.toLowerCase()}`}>
               {i.label}
-            </a>
+            </Link>
           ))}
-          <Link href="/signin" className={primary} data-testid="pill-signin">
+          <Link href="/signin" className={`${primary} max-sm:hidden`} data-testid="pill-signin">
             Sign in
           </Link>
         </motion.nav>

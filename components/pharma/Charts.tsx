@@ -20,7 +20,7 @@ import { PROGRAM } from "@/components/labels";
 import { ROUTER_PROGRAMS, type PharmaMetricsRes } from "@/lib/api/contracts";
 
 // Single-series charts: one hue (brand teal), text in ink tokens, recessive grid.
-const MARK = "var(--color-primary)";
+const MARK = "var(--echo-accent)"; // teal: the Echo accent
 const GRID = "var(--color-line)";
 const TICK = { fill: "var(--color-muted-foreground)", fontSize: 12 };
 const AXIS_LABEL = { fill: "var(--color-muted-foreground)", fontSize: 12 };

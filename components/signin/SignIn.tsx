@@ -3,7 +3,7 @@
 import { motion } from "framer-motion";
 import { ArrowLeft, ArrowRight, BarChart3, HeartHandshake, Stethoscope, type LucideIcon } from "lucide-react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useId, useState } from "react";
 
 import { ThemeToggle } from "@/components/AppHeader";
@@ -45,8 +45,13 @@ const ROLES: { role: DemoRole; title: string; sub: string; email: string; href: 
 
 export function SignIn() {
   const router = useRouter();
+  const params = useSearchParams();
   const emailId = useId();
-  const [role, setRole] = useState<DemoRole>("doctor");
+  // Preselect from the landing's top labels (/signin?role=patient, ...).
+  const [role, setRole] = useState<DemoRole>(() => {
+    const r = params.get("role");
+    return r === "patient" || r === "pharma" ? r : "doctor";
+  });
   const [going, setGoing] = useState(false);
   const chosen = ROLES.find((r) => r.role === role) ?? ROLES[0];
 

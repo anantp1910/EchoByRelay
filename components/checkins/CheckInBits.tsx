@@ -52,7 +52,7 @@ export function CheckInStrip({ latest, nameFor }: { latest: CheckInView | null; 
   return (
     <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm" data-testid="checkin-strip">
       <span className="inline-flex items-center gap-1.5 font-medium">
-        <ClipboardCheck aria-hidden className="size-4 text-primary" /> Check-in · Day {latest.day}
+        <ClipboardCheck aria-hidden className="size-4 text-[var(--echo-accent)]" /> Check-in · Day {latest.day}
       </span>
       <span className="text-muted-foreground">by {nameFor(latest.submitted_by_member_id)}</span>
       <FlagPills flags={latest.flags} />

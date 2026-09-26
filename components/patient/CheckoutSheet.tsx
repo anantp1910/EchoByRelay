@@ -163,7 +163,7 @@ export function CheckoutSheet({ open, onOpenChange, orderId, amountUsd, payerMem
       >
         <SheetHeader className="border-b border-line px-5 pt-5 pr-12">
           <SheetTitle className="flex items-center gap-2 text-xl font-bold">
-            <CreditCard aria-hidden className="size-5 text-primary" /> {t.title}
+            <CreditCard aria-hidden className="size-5 text-[var(--echo-accent)]" /> {t.title}
           </SheetTitle>
           <SheetDescription className="text-base">{t.desc}</SheetDescription>
         </SheetHeader>
@@ -229,7 +229,7 @@ export function CheckoutSheet({ open, onOpenChange, orderId, amountUsd, payerMem
                 data-testid="checkout-recurring"
                 className="flex min-h-14 items-center gap-3 rounded-xl border border-line p-3 text-left focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:outline-none"
               >
-                <Repeat aria-hidden className="size-5 shrink-0 text-primary" />
+                <Repeat aria-hidden className="size-5 shrink-0 text-[var(--echo-accent)]" />
                 <span className="flex-1">
                   <span className="block font-medium">{t.recurring}</span>
                   <span className="block text-base text-muted-foreground">{t.recurringHint}</span>

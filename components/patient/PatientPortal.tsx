@@ -217,7 +217,7 @@ export function PatientPortal({ patientId }: { patientId: string }) {
     : [];
 
   return (
-    <div className="min-h-full flex-1 bg-background text-lg">
+    <div className="min-h-full flex-1 text-lg">
       <header className="sticky top-[env(safe-area-inset-top,0px)] z-20 border-b border-line bg-card/95 backdrop-blur">
         <div className="mx-auto flex h-16 max-w-xl items-center gap-2 px-4">
           <RelayMark />
@@ -245,7 +245,7 @@ export function PatientPortal({ patientId }: { patientId: string }) {
           <SearchX aria-hidden className="size-10 text-muted-foreground" />
           <h1 className="text-2xl font-bold">{t.notFound}</h1>
           <p className="text-muted-foreground">{t.notFoundHint}</p>
-          <Link href="/" className="mt-2 inline-flex min-h-11 items-center rounded font-medium text-primary underline underline-offset-4">
+          <Link href="/" className="mt-2 inline-flex min-h-11 items-center rounded font-medium text-[var(--echo-accent)] underline underline-offset-4">
             {t.home}
           </Link>
         </main>
@@ -512,7 +512,7 @@ function Card({ children }: { children: React.ReactNode }) {
 function CardTitle({ children, icon: Icon }: { children: React.ReactNode; icon?: typeof Pill }) {
   return (
     <h2 className="flex items-center gap-2 text-xl font-bold sm:text-2xl">
-      {Icon && <Icon aria-hidden className="size-6 text-primary" />}
+      {Icon && <Icon aria-hidden className="size-6 text-[var(--echo-accent)]" />}
       {children}
     </h2>
   );
@@ -548,7 +548,7 @@ function ProgressTracker({ steps, current, nowLabel }: { steps: string[]; curren
               className={cn(
                 "relative z-10 grid size-8 shrink-0 place-items-center rounded-full border-2 font-mono text-sm font-bold transition-colors duration-200",
                 done && "border-ok bg-ok text-white dark:text-[#062326]",
-                active && "border-primary bg-card text-primary",
+                active && "border-primary bg-card text-[var(--echo-accent)]",
                 !done && !active && "border-line bg-card text-muted-foreground"
               )}
             >

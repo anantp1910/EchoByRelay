@@ -65,19 +65,22 @@ export function WordmarkHero() {
 
   return (
     <section ref={ref} id="top" aria-labelledby="hero-title" className="relative flex min-h-svh flex-col px-5 pt-5 pb-8 sm:px-10 lg:px-[6.25rem] lg:pt-8">
-      {/* Top labels: sections, sign in, theme. */}
-      <nav aria-label="Primary" className="relative z-20 flex items-center justify-between gap-4 sm:grid sm:grid-cols-[1fr_auto_1fr]">
-        <a href="#story" className={linkCls}>
-          The story
-        </a>
-        <a href="#people" className={`${linkCls} justify-self-center max-sm:hidden`}>
-          The people
-        </a>
-        <div className="flex items-center justify-self-end gap-2">
+      {/* Top labels: the only way in. Each opens sign-in with that role chosen. */}
+      <nav aria-label="Sign in as" className="relative z-20 flex items-center justify-between gap-3 sm:grid sm:grid-cols-[1fr_auto_1fr]">
+        <Link href="/signin?role=doctor" data-testid="nav-doctor" className={linkCls}>
+          Doctor
+        </Link>
+        <Link href="/signin?role=patient" data-testid="nav-patient" className={`${linkCls} sm:justify-self-center`}>
+          Patient
+        </Link>
+        <div className="flex items-center justify-self-end gap-2 sm:gap-4">
+          <Link href="/signin?role=pharma" data-testid="nav-pharma" className={linkCls}>
+            Pharma
+          </Link>
           <Link
             href="/signin"
             data-testid="nav-signin"
-            className="inline-flex min-h-11 items-center whitespace-nowrap rounded-full border border-foreground/25 px-5 text-[0.95rem] transition-[background-color,transform] duration-200 hover:-translate-y-0.5 hover:bg-muted active:scale-[0.97] focus-visible:ring-2 focus-visible:ring-ring/60 focus-visible:outline-none"
+            className="max-sm:hidden inline-flex min-h-11 items-center whitespace-nowrap rounded-full border border-foreground/25 px-5 text-[0.95rem] transition-[background-color,transform] duration-200 hover:-translate-y-0.5 hover:bg-muted active:scale-[0.97] focus-visible:ring-2 focus-visible:ring-ring/60 focus-visible:outline-none"
           >
             Sign in
           </Link>

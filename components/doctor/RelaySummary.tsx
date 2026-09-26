@@ -134,7 +134,7 @@ export function RelaySummary({
       <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-2">
         <div>
           <h3 id="relay-summary-title" className="flex items-center gap-2 text-base font-bold">
-            <Sparkles aria-hidden className="size-4 text-primary" /> {BRAND.name} did this for {patientFirstName}
+            <Sparkles aria-hidden className="size-4 text-[var(--echo-accent)]" /> {BRAND.name} did this for {patientFirstName}
           </h3>
           <p className="text-sm text-muted-foreground">
             {intake.status === "done" ? `From 1 sentence, ${BRAND.name}:` : "Listening to the prescription…"}
@@ -142,8 +142,8 @@ export function RelaySummary({
         </div>
         {minutes > 0 && (
           <p className="text-right" data-testid="time-saved" data-minutes={minutes}>
-            <span className="flex items-center justify-end gap-1.5 font-heading text-2xl font-bold tabular">
-              <Clock aria-hidden className="size-5 text-primary" />~{minutes} min
+            <span className="flex items-center justify-end gap-1.5 font-heading text-2xl font-light tabular">
+              <Clock aria-hidden className="size-5 text-[var(--echo-accent)]" />~{minutes} min
             </span>
             <span className="text-xs text-muted-foreground">Est. staff time saved</span>
           </p>

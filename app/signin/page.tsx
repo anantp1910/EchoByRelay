@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { Suspense } from "react";
 
 import { echoFonts } from "@/app/fonts";
 import { SignIn } from "@/components/signin/SignIn";
@@ -11,7 +12,10 @@ export const metadata: Metadata = {
 export default function SignInPage() {
   return (
     <div className={`echo ${echoFonts} flex flex-1 flex-col bg-[var(--slate-pale)] text-foreground`}>
-      <SignIn />
+      {/* useSearchParams (role preselect) needs a Suspense boundary. */}
+      <Suspense>
+        <SignIn />
+      </Suspense>
     </div>
   );
 }

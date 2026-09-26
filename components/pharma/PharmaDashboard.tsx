@@ -97,7 +97,7 @@ export function PharmaDashboard() {
         </section>
 
         <div className="grid gap-4 lg:grid-cols-[minmax(0,2fr)_minmax(0,3fr)]">
-          <section aria-labelledby="feed-title" className="min-w-0 rounded-xl border border-line bg-card p-5">
+          <section aria-labelledby="feed-title" className="min-w-0 rounded-2xl border border-line bg-card p-5">
             <div className="mb-4 flex items-baseline justify-between gap-2">
               <h2 id="feed-title" className="text-lg font-bold">
                 Live agent feed
@@ -186,12 +186,12 @@ function Kpis({
   return (
     <section aria-label="Key metrics" className="grid grid-cols-2 gap-3 lg:grid-cols-4 lg:gap-4">
       {tiles.map((k) => (
-        <div key={k.id} className="flex flex-col rounded-xl border border-line bg-card p-4 lg:p-5" data-testid={`kpi-${k.id}`}>
+        <div key={k.id} className="flex flex-col rounded-2xl border border-line bg-card p-4 lg:p-5" data-testid={`kpi-${k.id}`}>
           <div className="flex flex-wrap items-center justify-between gap-1">
             <p className="text-sm text-muted-foreground">{k.label}</p>
             {k.sample && <SampleBadge />}
           </div>
-          <div className="mt-2 font-heading text-3xl font-bold tabular lg:text-4xl">
+          <div className="mt-2 font-heading text-3xl font-light tracking-tight tabular lg:text-4xl">
             {k.value !== null ? (
               <CountUp value={k.value} format={k.format} />
             ) : k.sample && state === "error" ? (
@@ -231,7 +231,7 @@ function ChartCard({
   children: React.ReactNode;
 }) {
   return (
-    <section className="min-w-0 rounded-xl border border-line bg-card p-5" aria-label={title}>
+    <section className="min-w-0 rounded-2xl border border-line bg-card p-5" aria-label={title}>
       <div className="flex flex-wrap items-start justify-between gap-2">
         <div>
           <h2 className="text-lg font-bold">{title}</h2>
@@ -323,7 +323,7 @@ function AuditTrail({ rows, state, onRetry }: { rows: AuditLog[]; state: Load; o
     "h-11 rounded-lg border border-line bg-background px-2 text-sm focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:outline-none sm:h-9";
 
   return (
-    <section aria-labelledby="audit-title" className="min-w-0 rounded-xl border border-line bg-card p-5">
+    <section aria-labelledby="audit-title" className="min-w-0 rounded-2xl border border-line bg-card p-5">
       <div className="mb-3 flex items-baseline justify-between gap-2">
         <h2 id="audit-title" className="text-lg font-bold">
           Audit trail

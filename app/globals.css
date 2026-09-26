@@ -318,3 +318,14 @@
   font-family: var(--font-anton), "Impact", sans-serif;
 }
 
+
+/* Portals (doctor, patient, pharma): the landing's pale slate ground and
+ * light Figtree headings. Scoped so the landing keeps its own weights. */
+.echo-portal {
+  background-color: var(--slate-pale);
+}
+.echo-portal :is(h1, h2, h3) {
+  font-family: var(--font-figtree), ui-sans-serif, system-ui, sans-serif;
+  font-weight: 400;
+  letter-spacing: -0.01em;
+}

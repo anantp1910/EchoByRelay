@@ -179,11 +179,11 @@ export function DoctorConsole() {
             <CheckInStrip latest={checkins.latest} nameFor={nameFor} />
           </PatientHeader>
 
-          <section aria-label="New prescription by voice" className="rounded-xl border border-line bg-card p-5">
+          <section aria-label="New prescription by voice" className="rounded-2xl border border-line bg-card p-5">
             <VoiceButton onTranscript={handleTranscript} />
           </section>
 
-          <section aria-labelledby="timeline-title" className="rounded-xl border border-line bg-card p-5">
+          <section aria-labelledby="timeline-title" className="rounded-2xl border border-line bg-card p-5">
             <div className="mb-4 flex items-center justify-between gap-2">
               <h2 id="timeline-title" className="text-base font-bold">
                 Agent activity
@@ -251,7 +251,7 @@ function Panel({
   children: React.ReactNode;
 }) {
   return (
-    <section className="rounded-xl border border-line bg-card">
+    <section className="rounded-2xl border border-line bg-card">
       <div className="flex items-center gap-2 border-b border-line px-4 py-3">
         {Icon && <Icon aria-hidden className="size-4 text-muted-foreground" />}
         <h2 className="text-sm font-bold">{title}</h2>
@@ -351,7 +351,7 @@ function PatientHeader({
 }) {
   if (!row) {
     return (
-      <section className="rounded-xl border border-line bg-card px-5 py-4">
+      <section className="rounded-2xl border border-line bg-card px-5 py-4">
         {loading ? (
           <div className="space-y-2" aria-busy="true" aria-label="Loading patient">
             <Skeleton className="h-7 w-48" />
@@ -365,7 +365,7 @@ function PatientHeader({
   }
   const { patient } = row;
   return (
-    <section className="flex flex-wrap items-center gap-x-4 gap-y-2 rounded-xl border border-line bg-card px-5 py-4">
+    <section className="flex flex-wrap items-center gap-x-4 gap-y-2 rounded-2xl border border-line bg-card px-5 py-4">
       <div className="min-w-0">
         <h1 className="truncate text-2xl font-bold">{patient.name}</h1>
         <p className="mt-0.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-muted-foreground">
