@@ -42,6 +42,8 @@ services/hearsay/             Python deepfake scorer (optional)
 
 ## Agents (lib/agents)
 
+Team is 3 people. trustGate, eligibility, and trialMatcher are OUT of scope unless a human says otherwise (Person C may build trustGate / NSA HEARSAY late, only if the demo is stable). Build intake → coverage → router → paDrafter → patientComms → checkout → watchdog first.
+
 Each agent is a pure async function: `(input, ctx) => result`, and it MUST emit events via `ctx.emit(event)` so the UI timeline streams. Every event is also written to `agent_events` and `audit_log`.
 
 | Agent | Input → Output |
@@ -91,6 +93,11 @@ npm run demo:reset   # reset demo state + clock to day 0
 ```
 
 ## Working style for Claude
+
+- Three humans work in parallel, each with their own Claude session. Stay inside your person's folders; for anything else, propose the change instead of making it.
+  - Person A (Engine): `lib/` (except `lib/data/fixtures/`), `app/api/`, `supabase/schema.sql`
+  - Person B (Experience + Demo): page routes under `app/` (not `app/api/`), `components/`, `public/`
+  - Person C (Integration + Ops): `lib/data/fixtures/`, `supabase/seed.sql`, `tests/`, `docs/`, `README.md`, `.env.example`, deploy config
 
 - Before a multi-file change, state the plan in 3–5 bullets, then do it.
 - After each phase in BUILD_PLAN.md, run lint + typecheck and fix errors before moving on.
