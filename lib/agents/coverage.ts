@@ -10,37 +10,32 @@ import type { AgentContext } from "./context";
 // stream the result. Mock-backed, so events are simulated=true.
 
 export async function coverage(patient: Patient, ctx: AgentContext): Promise<CoverageQuote> {
-  await ctx.emit({
-    agent: "coverage",
-    status: "running",
-    title: "Checking coverage…",
+  const s = await ctx.step("coverage", "Checking coverage…", {
     detail: "Verifying the plan's requirements.",
     simulated: true,
   });
 
-  const quote = checkCoverage(patient, DEMO_DRUG.name);
+  try {
+    const quote = checkCoverage(patient, DEMO_DRUG.name);
 
-  if (ctx.rxId) {
-    const { error } = await db.from("coverage_checks").insert({
-      rx_id: ctx.rxId,
-      pa_required: quote.paRequired,
-      copay_usd: quote.copayUsd,
-      tier: quote.tier,
-      is_seed: false,
-    });
-    if (error) {
-      throw new Error(`coverage_checks insert failed: ${error.message}`);
+    if (ctx.rxId) {
+      const { error } = await db.from("coverage_checks").insert({
+        rx_id: ctx.rxId,
+        pa_required: quote.paRequired,
+        copay_usd: quote.copayUsd,
+        tier: quote.tier,
+        is_seed: false,
+      });
+      if (error) {
+        throw new Error(`coverage_checks insert failed: ${error.message}`);
+      }
     }
+
+    const title = `${quote.paRequired ? "PA required" : "Covered"} · $${quote.copayUsd} copay`;
+    await s.done(title, `Formulary tier ${quote.tier}`);
+    return quote;
+  } catch (err) {
+    await s.blocked("Coverage check failed", err instanceof Error ? err.message : String(err));
+    throw err;
   }
-
-  const title = `${quote.paRequired ? "PA required" : "Covered"} · $${quote.copayUsd} copay`;
-  await ctx.emit({
-    agent: "coverage",
-    status: "done",
-    title,
-    detail: `Formulary tier ${quote.tier}`,
-    simulated: true,
-  });
-
-  return quote;
 }

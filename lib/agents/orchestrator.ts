@@ -114,16 +114,16 @@ export async function run(
     return;
   }
 
-  // --- intake ---
+  // --- intake --- (agent resolves its own step, incl. blocked on failure) ---
   let result;
   try {
     result = await intake(transcript, ctx);
   } catch (err) {
-    await emitBlocked(ctx, "intake", "Couldn't process the prescription", err);
+    console.error("[orchestrator] intake failed:", err);
     return;
   }
   if (!isUsableIntake(result)) {
-    // intake already emitted a blocked event; leave the row at status `new`.
+    // intake already blocked its step; leave the prescription at status `new`.
     return;
   }
 
@@ -146,12 +146,12 @@ export async function run(
     return;
   }
 
-  // --- coverage ---
+  // --- coverage --- (agent resolves its own step) ---
   let coverageResult;
   try {
     coverageResult = await coverage(patient, ctx);
   } catch (err) {
-    await emitBlocked(ctx, "coverage", "Coverage check failed", err);
+    console.error("[orchestrator] coverage failed:", err);
     return;
   }
 
@@ -159,6 +159,6 @@ export async function run(
   try {
     await router(patient, coverageResult, ctx);
   } catch (err) {
-    await emitBlocked(ctx, "router", "Routing failed", err);
+    console.error("[orchestrator] router failed:", err);
   }
 }

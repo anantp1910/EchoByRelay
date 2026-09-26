@@ -187,47 +187,42 @@ export async function router(
   opts: RouteOptions = {}
 ): Promise<RouteResult> {
   const { program, reasons } = route(patient, coverage, opts);
-  const detail = await explain(program, reasons);
   const rxId = ctx.rxId;
-
-  if (program === "escalate") {
-    await ctx.emit({
-      agent: "router",
-      status: "done",
-      title: PROGRAM_TITLES.escalate,
-      detail,
-      simulated: false,
-      data: { program, rxId },
-    });
-    // Dynamic import keeps route() importable outside Next (test:router).
-    try {
-      const { db } = await import("@/lib/db/server");
-      const { error } = await db.from("alerts").insert({
-        rx_id: rxId,
-        kind: "escalation",
-        severity: "warning",
-        resolved: false,
-        is_seed: false,
-      });
-      if (error) console.warn(`[router] escalation alert insert failed: ${error.message}`);
-    } catch (err) {
-      console.warn("[router] escalation alert insert threw:", err);
-    }
-    return { program, reasons };
-  }
-
-  const action = (ENROLLMENT_PROGRAMS as readonly string[]).includes(program)
-    ? "enroll"
-    : "fill_retail";
-
-  await ctx.emit({
-    agent: "router",
-    status: "needs_approval",
-    title: PROGRAM_TITLES[program],
-    detail,
-    simulated: false,
-    data: { action, program, rxId },
+  const s = await ctx.step("router", "Choosing an access path…", {
+    detail: "Applying the deterministic coverage rules.",
   });
 
-  return { program, reasons };
+  try {
+    const detail = await explain(program, reasons);
+
+    if (program === "escalate") {
+      await s.done(PROGRAM_TITLES.escalate, detail, { program, rxId });
+      // Alert for the doctor's inbox. Own try/catch so an alert failure does not
+      // re-block the (successful) routing step. Dynamic import keeps route()
+      // importable outside Next (test:router).
+      try {
+        const { db } = await import("@/lib/db/server");
+        const { error } = await db.from("alerts").insert({
+          rx_id: rxId,
+          kind: "escalation",
+          severity: "warning",
+          resolved: false,
+          is_seed: false,
+        });
+        if (error) console.warn(`[router] escalation alert insert failed: ${error.message}`);
+      } catch (err) {
+        console.warn("[router] escalation alert insert threw:", err);
+      }
+      return { program, reasons };
+    }
+
+    const action = (ENROLLMENT_PROGRAMS as readonly string[]).includes(program)
+      ? "enroll"
+      : "fill_retail";
+    await s.needsApproval(PROGRAM_TITLES[program], detail, { action, program, rxId });
+    return { program, reasons };
+  } catch (err) {
+    await s.blocked("Routing failed", err instanceof Error ? err.message : String(err));
+    throw err;
+  }
 }

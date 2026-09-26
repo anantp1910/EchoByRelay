@@ -207,6 +207,12 @@ alter table alerts drop constraint if exists alerts_kind_check;
 alter table alerts add constraint alerts_kind_check
   check (kind in ('bridge_cliff', 'pa_denied', 'no_pickup', 'escalation'));
 
+-- A3.1: one row per step (running -> done|blocked|needs_approval). Realtime now
+-- delivers UPDATEs, not just INSERTs. REPLICA IDENTITY FULL makes the full row
+-- available so RLS can be evaluated for anon subscribers on UPDATE/DELETE and
+-- the complete new row is delivered in the change payload.
+alter table agent_events replica identity full;
+
 -- ============================================================================
 -- Indexes
 -- ============================================================================

@@ -126,14 +126,14 @@ export async function POST(request: NextRequest): Promise<Response> {
       if (updErr) throw new Error(updErr.message);
 
       // Continue the chain (A4 replaces this with the real PA drafter).
-      await ctx.emit({
-        agent: "paDrafter",
-        status: "done",
-        title: "Ready to draft PA",
-        detail: `Enrolled · ${supplyDays}-day supply · ships in ${shipsInDays} days.`,
+      const paStep = await ctx.step("paDrafter", "Preparing the prior authorization…", {
         simulated: true,
-        data: { rxId, enrollmentId, program },
       });
+      await paStep.done(
+        "Ready to draft PA",
+        `Enrolled · ${supplyDays}-day supply · ships in ${shipsInDays} days.`,
+        { rxId, enrollmentId, program }
+      );
 
       return jsonResponse({ ok: true as const });
     } catch (err) {

@@ -204,6 +204,9 @@ export interface Message {
 }
 
 // Matches the agent_events columns exactly. rx_id nullable, patient_id required.
+//
+// One row per step. Subscribe to INSERT and UPDATE; a row moves
+//   running -> done | blocked | needs_approval -> approved | rejected.
 export interface AgentEvent {
   id: string;
   rx_id: string | null;
