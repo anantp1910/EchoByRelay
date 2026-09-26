@@ -9,13 +9,14 @@ import { Button } from "@/components/ui/button";
 import { MARIA_ID } from "@/lib/demo/constants";
 import { cn } from "@/lib/utils";
 
+import { useDemoRole } from "./role";
 import { HAS_SUPABASE } from "./useLiveEvents";
 import { useMounted } from "./useMounted";
 
 const NAV = [
-  { href: "/doctor", label: "Doctor" },
-  { href: `/patient/${MARIA_ID}`, label: "Patient" },
-  { href: "/pharma", label: "Pharma" },
+  { href: "/doctor", label: "Doctor", role: "doctor" },
+  { href: `/patient/${MARIA_ID}`, label: "Patient", role: "patient" },
+  { href: "/pharma", label: "Pharma", role: "pharma" },
 ] as const;
 
 export function RelayMark({ className }: { className?: string }) {
@@ -72,6 +73,7 @@ interface AppHeaderProps {
 /** Top bar for the doctor and pharma portals. */
 export function AppHeader({ portal, children, className }: AppHeaderProps) {
   const pathname = usePathname();
+  const role = useDemoRole(); // demo sign-in choice: highlight only, not auth
   return (
     <header className={cn("sticky top-0 z-30 border-b border-line bg-card/95 backdrop-blur", className)}>
       <div className="mx-auto flex h-14 max-w-[1600px] items-center gap-3 px-4 lg:px-6">
@@ -96,7 +98,15 @@ export function AppHeader({ portal, children, className }: AppHeaderProps) {
                     active && "bg-accent font-medium text-accent-foreground"
                   )}
                 >
+                  {item.role === role && (
+                    <span
+                      aria-hidden
+                      className="relay-glow mr-1.5 inline-block size-1.5 -translate-y-px rounded-full bg-glow"
+                      title="Your demo role"
+                    />
+                  )}
                   {item.label}
+                  {item.role === role && <span className="sr-only"> (your demo role)</span>}
                 </Link>
               );
             })}

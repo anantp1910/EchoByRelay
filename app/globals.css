@@ -20,6 +20,9 @@
   /* Relay tokens -> utilities: bg-teal, text-ok-strong, border-line, ... */
   --color-teal: var(--teal);
   --color-teal-soft: var(--teal-soft);
+  --color-ice: var(--ice);
+  --color-ice-strong: var(--ice-strong);
+  --color-glow: var(--glow);
   --color-ok: var(--ok);
   --color-ok-strong: var(--ok-strong);
   --color-ok-soft: var(--ok-soft);
@@ -97,6 +100,12 @@
   --bg: #f4f7f7;
   --surface: #ffffff;
 
+  /* "Relay Path" extension: ice-blue grounds + a luminous glow. --glow is
+   * decorative only (strokes, halos), never text. --ice-strong is text-safe. */
+  --ice: #e6f3f6;
+  --ice-strong: #1d5f73;
+  --glow: #19b3aa;
+
   --teal-soft: color-mix(in srgb, var(--teal) 12%, var(--surface));
   --ok-soft: color-mix(in srgb, var(--ok) 12%, var(--surface));
   --risk-soft: color-mix(in srgb, var(--risk) 12%, var(--surface));
@@ -153,6 +162,10 @@
   --line: #24393c;
   --bg: #0b1a1c;
   --surface: #11272a;
+
+  --ice: #0f2a31;
+  --ice-strong: #9fd6e4;
+  --glow: #5fe6da;
 
   --teal-soft: color-mix(in srgb, var(--teal) 14%, var(--surface));
   --ok-soft: color-mix(in srgb, var(--ok) 14%, var(--surface));
@@ -214,4 +227,27 @@
     animation: none;
     transform: scaleY(0.6);
   }
+}
+
+/* ---------------------------------------------------------------------------
+ * Relay Path motif: soft luminous strokes. Blur is used sparingly (few layers).
+ * ------------------------------------------------------------------------- */
+.relay-glow {
+  filter: drop-shadow(0 0 6px color-mix(in srgb, var(--glow) 70%, transparent))
+    drop-shadow(0 0 18px color-mix(in srgb, var(--glow) 35%, transparent));
+}
+.relay-aura {
+  background:
+    radial-gradient(60% 50% at 70% 30%, color-mix(in srgb, var(--glow) 18%, transparent), transparent 70%),
+    radial-gradient(50% 40% at 20% 80%, color-mix(in srgb, var(--ice-strong) 12%, transparent), transparent 70%);
+}
+@keyframes relay-drift {
+  0%, 100% { transform: translate3d(0, 0, 0); }
+  50% { transform: translate3d(0, -6px, 0); }
+}
+.relay-drift {
+  animation: relay-drift 9s ease-in-out infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .relay-drift { animation: none; }
 }
