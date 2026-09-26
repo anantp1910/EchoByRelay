@@ -153,13 +153,6 @@ export function DoctorConsole() {
       portal="doctor"
       title="Doctor"
       subtitle={selected ? `${selected.patient.name}'s prescription, live` : "Today's patients"}
-      sections={[
-        { id: "patient", label: "Patient" },
-        { id: "voice", label: "New prescription" },
-        { id: "activity", label: "Agent activity" },
-        { id: "alerts", label: "Alerts" },
-        { id: "today", label: "Today's patients" },
-      ]}
     >
       <div className="grid grid-cols-[minmax(0,1fr)] items-start gap-4 lg:grid-cols-2 xl:grid-cols-[minmax(0,1fr)_minmax(0,1.3fr)_minmax(0,1fr)]">
         <div className="flex min-w-0 flex-col gap-4">

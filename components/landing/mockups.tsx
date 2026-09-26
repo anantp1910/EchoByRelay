@@ -133,7 +133,7 @@ export function PayMock() {
     <div className={cn(card, "w-full max-w-sm")}>
       <div className="flex items-center justify-between">
         <p className={cn(label, "flex items-center gap-1.5")}>
-          <CreditCard aria-hidden className="size-3.5" /> Her daughter · approve payment
+          <CreditCard aria-hidden className="size-3.5" /> Caregiver · approve payment
         </p>
         <Sim />
       </div>

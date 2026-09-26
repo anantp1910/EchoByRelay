@@ -51,13 +51,6 @@ export function PharmaDashboard() {
       portal="pharma"
       title="Pharma"
       subtitle={`Every prescription ${BRAND.name} carried, from decision to delivery.`}
-      sections={[
-        { id: "metrics", label: "Key metrics" },
-        { id: "charts", label: "Scripts rescued" },
-        { id: "mix", label: "Program mix" },
-        { id: "feed", label: "Live feed" },
-        { id: "audit", label: "Audit trail" },
-      ]}
     >
       <div className="grid grid-cols-[minmax(0,1fr)] items-start gap-4 md:grid-cols-2 xl:grid-cols-4">
         <Kpis metrics={data.metrics} state={data.metricsState} paSubmitted={data.paSubmitted} onRetry={data.retry} />

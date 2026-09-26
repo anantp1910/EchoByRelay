@@ -8,7 +8,7 @@ import { CountUpInView, Magnetic, Reveal } from "./motion";
 
 const SPONSORS = ["Impiricus", "Medvantx", "Visa", "xAI Grok", "Meta", "Aramco"];
 
-/** Why it matters + try the demo: the reference's "contact" block, our content. */
+/** Why it matters + try Echo: the reference's "contact" block, our content. */
 export function TryEcho() {
   return (
     <section id="why" aria-labelledby="why-title" className="scroll-mt-24 px-5 pb-[clamp(6rem,14vh,10rem)] sm:px-10 lg:px-[6.25rem]">
@@ -27,7 +27,7 @@ export function TryEcho() {
             Try {BRAND.name}
           </h2>
           <p className="mt-6 max-w-md text-base text-muted-foreground">
-            Pick Doctor, Patient or Pharma at the top of the page. Demo sign-in · no real accounts.
+            Pick Doctor, Patient or Pharma at the top of the page.
           </p>
           <div className="mt-6">
             <Magnetic>

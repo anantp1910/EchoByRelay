@@ -3,11 +3,12 @@
 import { AnimatePresence, motion } from "framer-motion";
 import { Check, CreditCard, HeartHandshake, Inbox, Pill, RotateCcw, SearchX, UserPlus } from "lucide-react";
 import Link from "next/link";
-import { useState } from "react";
+import { useCallback, useRef, useState } from "react";
 
 import { DashboardShell, DashCard } from "@/components/shell/DashboardShell";
 import { BRAND } from "@/components/brand";
 import { CheckInCard, CheckInHistory, CheckInNudge } from "@/components/checkins/CheckInCard";
+import { CheckInPanel, CheckInTab } from "@/components/checkins/CheckInPanel";
 import { useCheckIns } from "@/components/checkins/useCheckIns";
 import { PROGRAM, isRouterProgram } from "@/components/labels";
 import { LocalTime } from "@/components/LocalTime";
@@ -137,11 +138,6 @@ const T = {
 
 type Copy = (typeof T)[Language];
 
-const RELATION: Record<Language, Record<string, string>> = {
-  en: {},
-  es: { daughter: "hija", son: "hijo", wife: "esposa", husband: "esposo", mother: "madre", father: "padre", sister: "hermana", brother: "hermano" },
-};
-
 // Rx-field translations for the demo drug (not clinical claims).
 const RX_ES: Record<string, string> = {
   "once daily": "una vez al día",
@@ -193,6 +189,13 @@ export function PatientPortal({ patientId }: { patientId: string }) {
   const t = T[lang];
   const [payOpen, setPayOpen] = useState(false);
   const checkins = useCheckIns(patientId);
+  const [checkinOpen, setCheckinOpen] = useState(false);
+  const checkinTab = useRef<HTMLElement | null>(null);
+  const openCheckin = useCallback((tab: HTMLButtonElement) => {
+    checkinTab.current = tab;
+    setCheckinOpen(true);
+  }, []);
+  const closeCheckin = useCallback(() => setCheckinOpen(false), []);
 
   const first = (name: string) => name.split(" ")[0];
   const nameFor = (memberId: string | null) =>
@@ -228,17 +231,21 @@ export function PatientPortal({ patientId }: { patientId: string }) {
       lang={lang}
       title={title}
       subtitle={patient && viewer === "patient" ? t.sub : undefined}
-      sections={
-        patient
-          ? [
-              { id: "status", label: lang === "es" ? "Estado" : "Status" },
-              ...(rx && checkins.due ? [{ id: "checkin", label: lang === "es" ? "Registro" : "Check-in" }] : []),
-              { id: "medicine", label: t.medicine },
-              { id: "progress", label: t.progress },
-              ...(viewer === "member" && member?.can_pay ? [{ id: "payment", label: t.pay }] : []),
-              { id: "circle", label: t.circle },
-            ]
-          : []
+      railItems={
+        patient && rx ? (
+          <CheckInTab onOpen={openCheckin} due={Boolean(checkins.due)} overdue={Boolean(checkins.due?.overdue)} lang={lang} />
+        ) : undefined
+      }
+      mobileBar={
+        patient && rx ? (
+          <CheckInTab
+            compact
+            onOpen={openCheckin}
+            due={Boolean(checkins.due)}
+            overdue={Boolean(checkins.due?.overdue)}
+            lang={lang}
+          />
+        ) : undefined
       }
       actions={
         <>
@@ -297,24 +304,6 @@ export function PatientPortal({ patientId }: { patientId: string }) {
               </p>
             </div>
           </DashCard>
-
-          {rx && checkins.due && (
-            <div id="checkin" className="flex scroll-mt-20 flex-col gap-4 lg:col-span-2">
-              {viewer === "member" && (
-                <CheckInNudge due={checkins.due} lang={lang} patientFirstName={first(patient.name)} />
-              )}
-              <CheckInCard
-                key={`${checkins.due.day}-${viewer}`}
-                due={checkins.due}
-                lang={lang}
-                patientId={patient.id}
-                patientFirstName={first(patient.name)}
-                prescriptionId={rx.id}
-                proxyMemberId={viewer === "member" && member ? member.id : null}
-                onSubmit={checkins.submit}
-              />
-            </div>
-          )}
 
           <Card id="medicine">
             <CardTitle icon={Pill}>{viewer === "member" ? t.medicineFor(first(patient.name)) : t.medicine}</CardTitle>
@@ -387,14 +376,38 @@ export function PatientPortal({ patientId }: { patientId: string }) {
             <Feed messages={feed} circle={circle} lang={lang} t={t} />
           </Card>
 
-          {rx && (
-            <div className="lg:col-span-2 xl:col-span-1">
-              <CheckInHistory checkIns={checkins.checkIns} lang={lang} nameFor={nameFor} />
-            </div>
-          )}
         </div>
       )}
       </div>
+
+      {patient && rx && (
+        <CheckInPanel open={checkinOpen} onClose={closeCheckin} lang={lang} returnFocus={checkinTab}>
+          <div className="flex flex-col gap-5">
+            {checkins.due ? (
+              <>
+                {viewer === "member" && (
+                  <CheckInNudge due={checkins.due} lang={lang} patientFirstName={first(patient.name)} />
+                )}
+                <CheckInCard
+                  key={`${checkins.due.day}-${viewer}`}
+                  due={checkins.due}
+                  lang={lang}
+                  patientId={patient.id}
+                  patientFirstName={first(patient.name)}
+                  prescriptionId={rx.id}
+                  proxyMemberId={viewer === "member" && member ? member.id : null}
+                  onSubmit={checkins.submit}
+                />
+              </>
+            ) : (
+              <p className="rounded-2xl border border-line bg-card p-5 text-muted-foreground" data-testid="checkin-none">
+                {lang === "es" ? "No hay registro pendiente hoy." : "No check-in is due today."}
+              </p>
+            )}
+            <CheckInHistory checkIns={checkins.checkIns} lang={lang} nameFor={nameFor} />
+          </div>
+        </CheckInPanel>
+      )}
 
       {payable && order && member && (
         <CheckoutSheet
@@ -488,7 +501,7 @@ function Feed({
               className="flex items-center gap-2 px-1 text-base text-muted-foreground"
             >
               <UserPlus aria-hidden className="size-4 shrink-0" />
-              {t.joined(item.member.name.split(" ")[0], item.member.relation ? (RELATION[lang][item.member.relation] ?? item.member.relation) : null)}
+              {t.joined(item.member.name.split(" ")[0], lang === "es" ? "cuidadora" : "caregiver")}
             </motion.li>
           ) : (
             <motion.li

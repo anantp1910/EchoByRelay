@@ -23,7 +23,6 @@ export function PillNav() {
   const shape =
     "inline-flex min-h-11 items-center justify-center whitespace-nowrap rounded-xl px-3.5 text-sm transition-[background-color,transform] duration-200 hover:-translate-y-px active:scale-[0.97] focus-visible:ring-2 focus-visible:ring-ring/60 focus-visible:outline-none sm:px-6";
   const btn = `${shape} bg-[var(--muted)] text-foreground hover:bg-[var(--accent)]`;
-  const primary = `${shape} bg-foreground text-background hover:bg-foreground/85`;
 
   return (
     <AnimatePresence>
@@ -41,9 +40,6 @@ export function PillNav() {
               {i.label}
             </Link>
           ))}
-          <Link href="/signin" className={`${primary} max-sm:hidden`} data-testid="pill-signin">
-            Sign in
-          </Link>
         </motion.nav>
       )}
     </AnimatePresence>

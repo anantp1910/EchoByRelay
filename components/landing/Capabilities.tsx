@@ -25,7 +25,7 @@ const CARDS = [
   },
   {
     title: "Family can help",
-    body: "When the plan changes, her daughter can approve Medvantx Cash Pay from her phone, under a spending cap she sets, with a passkey. Free programs never touch a card.",
+    body: "When the plan changes, her caregiver can approve Medvantx Cash Pay from her phone, under a spending cap she sets, with a passkey. Free programs never touch a card.",
     Art: FamilyPayArt,
   },
 ];

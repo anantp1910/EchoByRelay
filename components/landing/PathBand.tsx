@@ -8,7 +8,7 @@ const NODES = [
   { x: 120, y: 190, who: "The doctor", role: "prescribes" },
   { x: 420, y: 110, who: "The pharmacy", role: "ships" },
   { x: 720, y: 200, who: "The patient", role: "receives" },
-  { x: 1000, y: 120, who: "Her daughter", role: "helps" },
+  { x: 1000, y: 120, who: "The caregiver", role: "helps" },
 ];
 const D = "M0 230 C 60 210, 90 190, 120 190 S 330 110, 420 110 S 640 200, 720 200 S 920 120, 1000 120 S 1140 150, 1200 130";
 

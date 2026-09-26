@@ -8,7 +8,6 @@ import { FixtureBadge, ThemeToggle } from "@/components/AppHeader";
 import { BRAND } from "@/components/brand";
 import { useDemoRole, type DemoRole } from "@/components/role";
 import { Sheet, SheetContent, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
-import { MARIA_ID } from "@/lib/demo/constants";
 import { cn } from "@/lib/utils";
 
 // Dashboard shell for the three portals (reference: a quiet left rail with
@@ -18,38 +17,27 @@ import { cn } from "@/lib/utils";
 export type Portal = "doctor" | "patient" | "pharma";
 export type ShellSection = { id: string; label: string };
 
-const PORTALS: { key: Portal; label: string; href: string }[] = [
-  { key: "doctor", label: "Doctor", href: "/doctor" },
-  { key: "patient", label: "Patient", href: `/patient/${MARIA_ID}` },
-  { key: "pharma", label: "Pharma", href: "/pharma" },
-];
 const ROLE_INITIAL: Record<DemoRole, string> = { doctor: "D", patient: "P", pharma: "Ph" };
 
 type Lang = "en" | "es";
 const L = {
   en: {
-    portals: "Portals",
     onPage: "On this page",
-    demo: "Demo mode",
+    synthetic: "Synthetic data",
     honesty: "Synthetic patients. The insurer, Medvantx and Visa are simulated.",
     home: "Home",
-    switchRole: "Switch role",
     open: "Open navigation",
     close: "Close navigation",
     nav: "Navigation",
-    portal: { doctor: "Doctor", patient: "Patient", pharma: "Pharma" },
   },
   es: {
-    portals: "Portales",
     onPage: "En esta página",
-    demo: "Modo demo",
+    synthetic: "Datos sintéticos",
     honesty: "Pacientes sintéticos. El seguro, Medvantx y Visa son simulados.",
     home: "Inicio",
-    switchRole: "Cambiar rol",
     open: "Abrir navegación",
     close: "Cerrar navegación",
     nav: "Navegación",
-    portal: { doctor: "Médico", patient: "Paciente", pharma: "Farma" },
   },
 } satisfies Record<Lang, unknown>;
 
@@ -80,13 +68,14 @@ const itemCls =
   "flex min-h-10 items-center gap-2 rounded-lg px-1 text-[1.05rem] transition-colors duration-150 hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/60 focus-visible:outline-none";
 
 function Rail({
-  portal,
   sections,
+  items,
   lang,
   onNavigate,
 }: {
-  portal: Portal;
   sections: ShellSection[];
+  /** Extra rail entries (e.g. the patient's Check-in tab). */
+  items?: React.ReactNode;
   lang: Lang;
   onNavigate?: () => void;
 }) {
@@ -100,35 +89,18 @@ function Rail({
           <ThemeToggle className="size-10 rounded-full bg-muted" />
           {role && (
             <span
-              title={`Demo role: ${role}`}
+              title={`Signed in as ${role}`}
               className="grid size-10 place-items-center rounded-full bg-[var(--echo-accent)] text-sm font-medium text-white dark:text-[#0e131a]"
             >
               {ROLE_INITIAL[role]}
-              <span className="sr-only"> (demo role: {role})</span>
+              <span className="sr-only"> (signed in as {role})</span>
             </span>
           )}
         </div>
       </div>
 
-      <nav aria-label="Portals" className="flex flex-col gap-8">
-        <NavGroup label={t.portals}>
-          {PORTALS.map((p) => {
-            const on = p.key === portal;
-            return (
-              <li key={p.key}>
-                <Link
-                  href={p.href}
-                  onClick={onNavigate}
-                  aria-current={on ? "page" : undefined}
-                  className={cn(itemCls, on ? "font-medium text-foreground" : "text-foreground/75")}
-                >
-                  <span aria-hidden className={cn("size-1.5 rounded-full", on ? "bg-[var(--echo-accent)]" : "bg-transparent")} />
-                  {t.portal[p.key]}
-                </Link>
-              </li>
-            );
-          })}
-        </NavGroup>
+      <nav aria-label="On this page" className="flex flex-col gap-8">
+        {items && <div className="flex flex-col">{items}</div>}
         {sections.length > 0 && (
           <NavGroup label={t.onPage}>
             {sections.map((s) => (
@@ -153,7 +125,7 @@ function Rail({
             </span>
             <span className="leading-tight">
               <span className="block text-[0.95rem]">{BRAND.full}</span>
-              <span className="block text-sm text-muted-foreground">{t.demo}</span>
+              <span className="block text-sm text-muted-foreground">{t.synthetic}</span>
             </span>
           </div>
           <p className="text-sm leading-relaxed text-muted-foreground">{t.honesty}</p>
@@ -164,9 +136,6 @@ function Rail({
           <span className="flex gap-4">
             <Link href="/" className="inline-flex min-h-10 items-center rounded hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/60 focus-visible:outline-none">
               {t.home}
-            </Link>
-            <Link href="/signin" className="inline-flex min-h-10 items-center rounded hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/60 focus-visible:outline-none">
-              {t.switchRole}
             </Link>
           </span>
         </div>
@@ -181,6 +150,8 @@ export function DashboardShell({
   title,
   subtitle,
   sections = [],
+  railItems,
+  mobileBar,
   actions,
   children,
 }: {
@@ -190,22 +161,27 @@ export function DashboardShell({
   title: React.ReactNode;
   subtitle?: React.ReactNode;
   sections?: ShellSection[];
+  /** Extra rail entries (desktop rail and phone menu). */
+  railItems?: React.ReactNode;
+  /** Extra control beside the phone menu button. */
+  mobileBar?: React.ReactNode;
   /** Right side of the title row (toggles, badges). */
   actions?: React.ReactNode;
   children: React.ReactNode;
 }) {
   const [open, setOpen] = useState(false);
   return (
-    <div lang={lang} className="flex min-h-full flex-1 bg-background">
+    <div lang={lang} data-portal={portal} className="flex min-h-full flex-1 bg-background">
       {/* Rail (desktop) */}
       <aside aria-label="Echo navigation" className="sticky top-0 hidden h-svh w-[19rem] shrink-0 overflow-y-auto lg:block">
-        <Rail portal={portal} sections={sections} lang={lang} />
+        <Rail sections={sections} items={railItems} lang={lang} />
       </aside>
 
       <div className="flex min-w-0 flex-1 flex-col">
         {/* Top bar (phones/tablets) */}
         <div className="sticky top-[env(safe-area-inset-top,0px)] z-30 flex items-center justify-between gap-2 border-b border-line bg-background/90 px-4 py-2 backdrop-blur-md lg:hidden">
           <Wordmark />
+          <div className="ml-auto flex items-center gap-2">{mobileBar}</div>
           <Sheet open={open} onOpenChange={setOpen}>
             <SheetTrigger
               aria-label={L[lang].open}
@@ -223,7 +199,7 @@ export function DashboardShell({
               >
                 <X aria-hidden className="size-5" />
               </button>
-              <Rail portal={portal} sections={sections} lang={lang} onNavigate={() => setOpen(false)} />
+              <Rail sections={sections} items={railItems} lang={lang} onNavigate={() => setOpen(false)} />
             </SheetContent>
           </Sheet>
         </div>

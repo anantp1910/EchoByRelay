@@ -12,24 +12,22 @@ import { setDemoRole, type DemoRole } from "@/components/role";
 import { DEMO_PRESCRIBER, MARIA_ID } from "@/lib/demo/constants";
 import { cn } from "@/lib/utils";
 
-const doctorLast = DEMO_PRESCRIBER.name.replace(/,.*$/, "").trim().split(/\s+/).at(-1) ?? "doctor";
-
-// Demo sign-in: no accounts, no passwords, nothing sent. Emails use the
-// reserved .example domain so they can never belong to a real person.
+// Role-only sign-in: no personal names on this page. Emails use the reserved
+// .example domain so they can never belong to a real person.
 const ROLES: { role: DemoRole; title: string; sub: string; email: string; href: string; icon: LucideIcon }[] = [
   {
     role: "doctor",
-    title: `Doctor · Dr. ${doctorLast}`,
+    title: "Doctor",
     sub: `${DEMO_PRESCRIBER.specialty} · ${DEMO_PRESCRIBER.clinic}`,
-    email: `${doctorLast.toLowerCase()}@clinic.example`,
+    email: "doctor@clinic.example",
     href: "/doctor",
     icon: Stethoscope,
   },
   {
     role: "patient",
-    title: "Patient · Maria / Ana",
-    sub: "Maria's phone in Spanish, and her daughter Ana",
-    email: "maria@family.example",
+    title: "Patient & caregiver",
+    sub: "The patient's phone in Spanish, and the caregiver's view",
+    email: "patient@family.example",
     href: `/patient/${MARIA_ID}`,
     icon: HeartHandshake,
   },
@@ -58,7 +56,7 @@ export function SignIn() {
   function onContinue(e: React.FormEvent) {
     e.preventDefault();
     setGoing(true);
-    setDemoRole(chosen.role); // highlights the nav item only; not authentication
+    setDemoRole(chosen.role); // remembers the chosen role only; not authentication
     router.push(chosen.href);
   }
 
@@ -86,9 +84,6 @@ export function SignIn() {
           <h1 id="signin-title" className="mt-6 font-[family-name:var(--font-figtree)] text-3xl font-light tracking-[-0.01em]">
             Sign in to {BRAND.name}
           </h1>
-          <p className="mt-2 text-sm text-muted-foreground" data-testid="signin-note">
-            Demo sign-in · no real accounts
-          </p>
 
           <fieldset className="mt-7">
             <legend className="text-sm font-medium">Continue as</legend>
@@ -132,7 +127,7 @@ export function SignIn() {
             data-testid="signin-email"
             className="mt-2 h-12 w-full rounded-xl border border-line bg-muted px-4 text-base text-foreground focus-visible:ring-2 focus-visible:ring-ring/60 focus-visible:outline-none"
           />
-          <p className="mt-1.5 text-xs text-muted-foreground">Prefilled demo address. No password needed.</p>
+          <p className="mt-1.5 text-xs text-muted-foreground">Prefilled address. No password needed.</p>
 
           <motion.button
             type="submit"

@@ -14,7 +14,7 @@ import { Reveal } from "./motion";
 const PEOPLE: { role: string; note: string; icon: LucideIcon; bg: string; simulated?: boolean }[] = [
   { role: "The doctor", note: "prescribes", icon: Stethoscope, bg: "bg-[#ccd3dd] from-[#dfe4ec] to-[#b8c1cf]" },
   { role: "The patient", note: "receives", icon: UserRound, bg: "bg-[#c1dedf] from-[#d9ecec] to-[#a9cfd1]" },
-  { role: "Her daughter", note: "helps", icon: HeartHandshake, bg: "bg-[#d5d1e3] from-[#e6e3ef] to-[#c3bfd6]" },
+  { role: "The caregiver", note: "helps", icon: HeartHandshake, bg: "bg-[#d5d1e3] from-[#e6e3ef] to-[#c3bfd6]" },
   { role: "The pharmacy", note: "ships", icon: Pill, bg: "bg-[#d5dbe3] from-[#e4e8ee] to-[#c6ced9]", simulated: true },
 ];
 
@@ -35,7 +35,7 @@ export function People() {
           <p className="mt-[clamp(3rem,10vh,7rem)] text-lg leading-relaxed text-[var(--slate-band-muted)]">
             {BRAND.name} listens when the doctor prescribes, then does the follow-through nobody has time for. It
             checks coverage, finds the free path, drafts the paperwork, explains it to the patient in her own language
-            and lets her family help. The doctor, the patient, her daughter and the pharmacy stay on one path.
+            and lets her family help. The doctor, the patient, her caregiver and the pharmacy stay on one path.
           </p>
         </Reveal>
 

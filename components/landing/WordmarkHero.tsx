@@ -77,13 +77,6 @@ export function WordmarkHero() {
           <Link href="/signin?role=pharma" data-testid="nav-pharma" className={linkCls}>
             Pharma
           </Link>
-          <Link
-            href="/signin"
-            data-testid="nav-signin"
-            className="max-sm:hidden inline-flex min-h-11 items-center whitespace-nowrap rounded-full border border-foreground/25 px-5 text-[0.95rem] transition-[background-color,transform] duration-200 hover:-translate-y-0.5 hover:bg-muted active:scale-[0.97] focus-visible:ring-2 focus-visible:ring-ring/60 focus-visible:outline-none"
-          >
-            Sign in
-          </Link>
           <ThemeToggle className="size-11 rounded-full" />
         </div>
       </nav>

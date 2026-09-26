@@ -39,7 +39,7 @@ const SCENES = [
     title: "The patient's phone, in Spanish",
     body: [
       "She gets the plan in her own language, in plain words: what is coming, when, and that it costs her nothing.",
-      "Her daughter joins her care circle and gets the same updates, in English.",
+      "Her caregiver joins her care circle and gets the same updates, in English.",
     ],
   },
   {
@@ -50,9 +50,9 @@ const SCENES = [
     ],
   },
   {
-    title: "Her daughter pays, safely",
+    title: "The caregiver pays, safely",
     body: [
-      "Her daughter approves the payment from her phone with a passkey, under a spending cap she sets. Refills can repeat on their own.",
+      "Her caregiver approves the payment from her phone with a passkey, under a spending cap she sets. Refills can repeat on their own.",
       "Free programs never touch a card. Only cash pay does, and only with a person's approval.",
     ],
   },
