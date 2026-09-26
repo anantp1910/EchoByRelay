@@ -11,8 +11,9 @@
 --   MARIA_PLAN_ID = 33333333-3333-3333-3333-333333333333
 --
 -- Maria: Spanish-speaking, rural South Georgia (ZIP 39840, Blakely GA),
--- insured, income above the PAP limit, new to the drug (on_drug_before = false)
--- -> the router will send her to quick_start. That is our demo choice.
+-- insured, income above the PAP limit, already on Jardiance (on_drug_before = true).
+-- Her new plan requires prior authorization, so this is a "continue therapy" case
+-- -> the router will send her to the Medvantx Bridge program. That is our demo choice.
 
 insert into patients (id, name, language, zip, rural, insured, plan_id, income_band, on_drug_before, is_seed)
 values (
@@ -24,7 +25,7 @@ values (
   true,
   '33333333-3333-3333-3333-333333333333',
   'above_pap',
-  false,
+  true,
   true
 )
 on conflict (id) do update set
