@@ -1,23 +1,21 @@
 "use client";
 
 import { motion, useScroll, useTransform } from "framer-motion";
+import { HeartHandshake, Pill, Stethoscope, UserRound, type LucideIcon } from "lucide-react";
 import { useRef } from "react";
 
 import { BRAND } from "@/components/brand";
-import { DEMO_PRESCRIBER } from "@/lib/demo/constants";
 import { cn } from "@/lib/utils";
 
 import { Reveal } from "./motion";
 
-// The people on the path: abstract portrait tiles (no photographs; synthetic
-// people), staggered like a portrait wall, joined by a glowing path.
-const doctorName = DEMO_PRESCRIBER.name.replace(/^Dr\.\s*/, "").replace(/,.*$/, "");
-
-const PEOPLE = [
-  { role: "Doctor", name: doctorName, initial: doctorName[0], bg: "bg-[#ccd3dd] from-[#dfe4ec] to-[#b8c1cf]" },
-  { role: "Patient", name: "Maria González", initial: "M", bg: "bg-[#c1dedf] from-[#d9ecec] to-[#a9cfd1]" },
-  { role: "Her daughter", name: "Ana González", initial: "A", bg: "bg-[#d5d1e3] from-[#e6e3ef] to-[#c3bfd6]" },
-  { role: "Pharmacy", name: "Medvantx", initial: "Rx", bg: "bg-[#d5dbe3] from-[#e4e8ee] to-[#c6ced9]", simulated: true },
+// The people on the path: abstract role tiles (no names, no photographs),
+// staggered like a portrait wall, joined by a glowing path.
+const PEOPLE: { role: string; note: string; icon: LucideIcon; bg: string; simulated?: boolean }[] = [
+  { role: "The doctor", note: "prescribes", icon: Stethoscope, bg: "bg-[#ccd3dd] from-[#dfe4ec] to-[#b8c1cf]" },
+  { role: "The patient", note: "receives", icon: UserRound, bg: "bg-[#c1dedf] from-[#d9ecec] to-[#a9cfd1]" },
+  { role: "Her daughter", note: "helps", icon: HeartHandshake, bg: "bg-[#d5d1e3] from-[#e6e3ef] to-[#c3bfd6]" },
+  { role: "The pharmacy", note: "ships", icon: Pill, bg: "bg-[#d5dbe3] from-[#e4e8ee] to-[#c6ced9]", simulated: true },
 ];
 
 export function People() {
@@ -37,7 +35,7 @@ export function People() {
           <p className="mt-[clamp(3rem,10vh,7rem)] text-lg leading-relaxed text-[var(--slate-band-muted)]">
             {BRAND.name} listens when the doctor prescribes, then does the follow-through nobody has time for. It
             checks coverage, finds the free path, drafts the paperwork, explains it to the patient in her own language
-            and lets her family help. The doctor, Maria, her daughter Ana and the pharmacy stay on one path.
+            and lets her family help. The doctor, the patient, her daughter and the pharmacy stay on one path.
           </p>
         </Reveal>
 
@@ -58,11 +56,11 @@ export function People() {
             <Reveal key={p.role} delay={i * 0.05} className={cn("relative", i % 2 === 1 && "sm:mt-24")}>
               <motion.figure whileHover={{ y: -6, scale: 1.015 }} transition={{ duration: 0.25 }}>
                 <div className={cn("relative grid aspect-[7/10] place-items-center overflow-hidden bg-gradient-to-br", p.bg)}>
-                  <span className="font-[family-name:var(--font-figtree)] text-[7rem] leading-none font-light text-[#283040]/70">{p.initial}</span>
+                  <p.icon aria-hidden strokeWidth={1} className="size-28 text-[#283040]/70" />
                   <span className="absolute bottom-4 left-4 size-3 rounded-full bg-[var(--echo-accent)] shadow-[0_0_18px_var(--color-glow)]" aria-hidden />
                 </div>
                 <figcaption className="mt-4 text-base">
-                  <span className="text-[var(--slate-band-muted)]">{p.role}</span> {p.name}
+                  {p.role} <span className="text-[var(--slate-band-muted)]">{p.note}</span>
                   {p.simulated && <span className="ml-2 rounded border border-[var(--slate-band-muted)]/50 px-1.5 text-xs text-[var(--slate-band-muted)]">Simulated</span>}
                 </figcaption>
               </motion.figure>

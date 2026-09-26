@@ -318,16 +318,3 @@
   font-family: var(--font-anton), "Impact", sans-serif;
 }
 
-/* Echo ripple rings around the drop (off with reduced motion). */
-@keyframes echo-ripple {
-  from { transform: scale(0.85); opacity: 0.55; }
-  to { transform: scale(1.35); opacity: 0; }
-}
-.echo-ripple {
-  transform-box: fill-box;
-  transform-origin: center;
-  animation: echo-ripple 4.8s ease-out infinite;
-}
-@media (prefers-reduced-motion: reduce) {
-  .echo-ripple { animation: none; opacity: 0.25; }
-}

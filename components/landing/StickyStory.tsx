@@ -7,20 +7,18 @@ import { BRAND } from "@/components/brand";
 import { cn } from "@/lib/utils";
 
 import { SCENE_MOCKS } from "./mockups";
+import { story } from "./pill/storyState";
 import { Reveal } from "./motion";
-import { prescriberShortName } from "./prescriber";
-
-const doctor = prescriberShortName();
-
-// The Maria storyboard in the reference's sticky split: the visual stays
+// One patient's journey, in the reference's sticky split (no names on the
+// landing; names appear only in the portals after sign-in): the visual stays
 // pinned on the left while the seven scenes scroll on the right. On phones
 // each scene shows its mockup inline. No scroll-jacking anywhere.
 const SCENES = [
   {
     title: "The doctor speaks",
     body: [
-      `${doctor} says one sentence at the end of the visit. ${BRAND.name} hears a prescription, not a note: drug, dose, frequency, for whom.`,
-      "Nothing to type, no form to find. The work starts before Maria reaches the parking lot.",
+      `The doctor says one sentence at the end of the visit. ${BRAND.name} hears a prescription, not a note: drug, dose, frequency, for whom.`,
+      "Nothing to type, no form to find. The work starts before the patient reaches the parking lot.",
     ],
   },
   {
@@ -38,10 +36,10 @@ const SCENES = [
     ],
   },
   {
-    title: "Maria's phone, in Spanish",
+    title: "The patient's phone, in Spanish",
     body: [
-      "Maria gets the plan in her own language, in plain words: what is coming, when, and that it costs her nothing.",
-      "Her daughter Ana joins her care circle and gets the same updates, in English.",
+      "She gets the plan in her own language, in plain words: what is coming, when, and that it costs her nothing.",
+      "Her daughter joins her care circle and gets the same updates, in English.",
     ],
   },
   {
@@ -52,16 +50,16 @@ const SCENES = [
     ],
   },
   {
-    title: "Ana pays, safely",
+    title: "Her daughter pays, safely",
     body: [
-      "Ana approves the payment from her phone with a passkey, under a spending cap she sets. Refills can repeat on their own.",
+      "Her daughter approves the payment from her phone with a passkey, under a spending cap she sets. Refills can repeat on their own.",
       "Free programs never touch a card. Only cash pay does, and only with a person's approval.",
     ],
   },
   {
     title: "One more patient kept",
     body: [
-      "The medicine arrives. Maria stays on therapy, and the manufacturer sees one more script rescued, with a full audit trail.",
+      "The medicine arrives. The patient stays on therapy, and the manufacturer sees one more script rescued, with a full audit trail.",
       `The doctor spoke once. ${BRAND.name} carried it all the way home.`,
     ],
   },
@@ -70,6 +68,19 @@ const SCENES = [
 export function StickyStory() {
   const [active, setActive] = useState(0);
   const refs = useRef<(HTMLElement | null)[]>([]);
+  const section = useRef<HTMLElement>(null);
+
+  // Tell the 3D pill which scene is showing (-1 outside the story).
+  useEffect(() => {
+    const io = new IntersectionObserver(([e]) => {
+      story.scene = e.isIntersecting ? Number(section.current?.dataset.active ?? 0) : -1;
+    });
+    if (section.current) io.observe(section.current);
+    return () => io.disconnect();
+  }, []);
+  useEffect(() => {
+    if (story.scene !== -1) story.scene = active;
+  }, [active]);
 
   useEffect(() => {
     const io = new IntersectionObserver(
@@ -86,11 +97,11 @@ export function StickyStory() {
   const cliff = active === 4;
 
   return (
-    <section id="story" aria-labelledby="story-title" className="scroll-mt-24">
+    <section ref={section} id="story" data-active={active} aria-labelledby="story-title" className="scroll-mt-24">
       <div className="px-5 pt-[clamp(5rem,12vh,8rem)] text-center">
         <Reveal>
           <h2 id="story-title" className="font-[family-name:var(--font-figtree)] text-[clamp(2.4rem,4.2vw,3.4rem)] leading-[1.02] font-light tracking-[-0.015em]">
-            One patient. Seven moments.
+            One patient&apos;s journey
           </h2>
         </Reveal>
       </div>

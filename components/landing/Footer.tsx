@@ -5,9 +5,9 @@ import Link from "next/link";
 import { BRAND } from "@/components/brand";
 import { MARIA_ID } from "@/lib/demo/constants";
 
-import { Drop } from "./Drop";
+import { StaticPill } from "./pill/TravelingPill";
 
-/** Steel footer; the Echo drop rests across its top edge. */
+/** Steel footer; the Echo pill rests across its top edge. */
 export function Footer() {
   const links = [
     { href: "/signin", label: "Sign in" },
@@ -17,7 +17,7 @@ export function Footer() {
   ];
   return (
     <footer className="relative mt-24 bg-[var(--steel)] text-white">
-      <Drop className="pointer-events-none absolute -top-28 right-[8%] w-44 sm:w-60" />
+      <StaticPill className="pointer-events-none absolute -top-24 right-[8%] w-40 sm:w-56" />
       <div className="flex min-h-[18rem] flex-col justify-between gap-10 px-5 py-12 sm:px-10 lg:px-[6.25rem]">
         <p className="font-wordmark text-5xl tracking-wide">
           {BRAND.name.toUpperCase()} <span className="font-sans text-base tracking-normal text-white/85">by {BRAND.maker}</span>

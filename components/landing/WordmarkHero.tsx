@@ -2,60 +2,52 @@
 
 import { motion, useScroll, useTransform } from "framer-motion";
 import Link from "next/link";
-import { useId, useRef } from "react";
+import { useRef } from "react";
 
 import { ThemeToggle } from "@/components/AppHeader";
 import { BRAND } from "@/components/brand";
 
-import { Drop, DROP_PATH } from "./Drop";
+import { usePillMode } from "./pill/mode";
+import { StaticPill } from "./pill/TravelingPill";
 
-// Hero: a giant condensed wordmark with the Echo drop resting over it. Where
-// the drop covers the letters they continue as hairline outlines, clipped to
-// the drop's exact shape. Four small labels frame the word.
+// Hero: a giant condensed wordmark with the 3D Echo pill (TravelingPill)
+// resting over it. Four small labels frame the word.
 
-// Two compositions: one line on wide screens, stacked "EC / HO" on phones
-// (as the reference stacks its wordmark). Drop sizes are in wordmark units.
-type Comp = { box: string; lines: { text: string; y: number }[]; drop: { x: number; y: number; w: number } };
+// Two compositions: one line on wide screens, stacked on phones (as the
+// reference stacks its wordmark). The filled letters sit under the 3D pill;
+// an identical hairline copy sits above it, so where the pill covers a
+// letter only its outline shows.
+type Comp = { box: string; lines: { text: string; y: number }[] };
 const WORD = BRAND.name.toUpperCase();
 const HALF = Math.ceil(WORD.length / 2);
-const WIDE: Comp = { box: "0 -40 1000 440", lines: [{ text: WORD, y: 345 }], drop: { x: 330, y: -150, w: 460 } };
+const WIDE: Comp = { box: "0 -40 1000 440", lines: [{ text: WORD, y: 345 }] };
 const TALL: Comp = {
   box: "0 -40 1000 880",
   lines: [
     { text: WORD.slice(0, HALF), y: 380 },
     { text: WORD.slice(HALF), y: 790 },
   ],
-  drop: { x: 170, y: -60, w: 760 },
 };
 
-function Wordmark({ comp, className }: { comp: Comp; className?: string }) {
-  const clipId = `hero-clip-${useId().replace(/:/g, "")}`;
-  const s = comp.drop.w / 480;
-  const t = `translate(${comp.drop.x + 40 * s} ${comp.drop.y + 40 * s}) scale(${s})`;
-  const text = (props: React.SVGProps<SVGTextElement>) =>
-    comp.lines.map((l) => (
-      <text key={l.text} x="0" y={l.y} fontSize="470" textLength="1000" lengthAdjust="spacingAndGlyphs" className="font-wordmark" {...props}>
-        {l.text}
-      </text>
-    ));
+function Words({ comp, outline, className }: { comp: Comp; outline?: boolean; className?: string }) {
   return (
     <svg viewBox={comp.box} className={`w-full overflow-visible text-[var(--wordmark)] ${className ?? ""}`} aria-hidden>
-      <defs>
-        <clipPath id={clipId}>
-          <path d={DROP_PATH} transform={t} />
-        </clipPath>
-      </defs>
-      {text({ fill: "currentColor" })}
-      <motion.g
-        initial={{ opacity: 0, y: 40, scale: 0.94 }}
-        animate={{ opacity: 1, y: 0, scale: 1 }}
-        transition={{ duration: 0.9, ease: [0.22, 1, 0.36, 1] }}
-        style={{ transformOrigin: `${comp.drop.x + comp.drop.w / 2}px ${comp.drop.y + comp.drop.w / 2}px` }}
-      >
-        <Drop place={{ x: comp.drop.x, y: comp.drop.y, width: comp.drop.w, height: s * 500 }} ripples tint />
-        {/* The letters continue as hairlines across the drop. */}
-        {text({ fill: "none", stroke: "currentColor", strokeWidth: 1.4, clipPath: `url(#${clipId})` })}
-      </motion.g>
+      {comp.lines.map((l) => (
+        <text
+          key={l.text}
+          x="0"
+          y={l.y}
+          fontSize="470"
+          textLength="1000"
+          lengthAdjust="spacingAndGlyphs"
+          className="font-wordmark"
+          fill={outline ? "none" : "currentColor"}
+          stroke={outline ? "currentColor" : undefined}
+          strokeWidth={outline ? 1.4 : undefined}
+        >
+          {l.text}
+        </text>
+      ))}
     </svg>
   );
 }
@@ -65,6 +57,7 @@ const linkCls =
 
 export function WordmarkHero() {
   const ref = useRef<HTMLElement>(null);
+  const mode = usePillMode();
   const { scrollYProgress } = useScroll({ target: ref, offset: ["start start", "end start"] });
   // Leave gently: the composition drifts up and fades as the page scrolls on.
   const y = useTransform(scrollYProgress, [0, 1], [0, -120]);
@@ -92,10 +85,20 @@ export function WordmarkHero() {
         </div>
       </nav>
 
-      <motion.div style={{ y, opacity: fade }} className="relative flex flex-1 items-center py-6 lg:py-4">
-        <Wordmark comp={WIDE} className="hidden sm:block" />
-        <Wordmark comp={TALL} className="sm:hidden" />
-      </motion.div>
+      <div className="relative flex flex-1 items-center py-6 lg:py-4">
+        <motion.div style={{ y, opacity: fade }} className="w-full">
+          <Words comp={WIDE} className="hidden sm:block" />
+          <Words comp={TALL} className="sm:hidden" />
+        </motion.div>
+        {mode === "static" && (
+          <StaticPill className="pointer-events-none absolute top-1/2 left-[56%] z-30 w-[72%] -translate-x-1/2 -translate-y-1/2 sm:w-[36%]" />
+        )}
+        {/* Above the pill (z-40 > its z-30): the letters continue as hairlines. */}
+        <motion.div style={{ y, opacity: fade }} className="pointer-events-none absolute inset-x-0 z-40 flex items-center py-6 lg:py-4">
+          <Words comp={WIDE} outline className="hidden sm:block" />
+          <Words comp={TALL} outline className="sm:hidden" />
+        </motion.div>
+      </div>
 
       {/* Bottom labels carry the headline. */}
       <h1 id="hero-title" className="relative z-10 flex flex-col gap-1 text-[clamp(1rem,1.4vw,1.15rem)] leading-snug sm:flex-row sm:justify-between">

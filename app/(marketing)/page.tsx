@@ -1,9 +1,9 @@
 import { echoFonts } from "@/app/fonts";
 import { Capabilities } from "@/components/landing/Capabilities";
-import { CompanionDrop } from "@/components/landing/CompanionDrop";
 import { Footer } from "@/components/landing/Footer";
 import { PathBand } from "@/components/landing/PathBand";
 import { People } from "@/components/landing/People";
+import { TravelingPill } from "@/components/landing/pill/TravelingPill";
 import { PillNav } from "@/components/landing/PillNav";
 import { Portals } from "@/components/landing/Portals";
 import { StickyStory } from "@/components/landing/StickyStory";
@@ -15,7 +15,7 @@ export default function Home() {
     // overflow-x-clip (not hidden) so the sticky storyboard keeps working.
     <div className={`echo ${echoFonts} flex-1 overflow-x-clip bg-background text-foreground`}>
       <PillNav />
-      <CompanionDrop />
+      <TravelingPill />
       <main>
         <WordmarkHero />
         <People />

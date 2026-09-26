@@ -10,7 +10,7 @@ import { Reveal } from "./motion";
 const CARDS = [
   {
     title: "Coverage, checked",
-    body: `Before Maria leaves the room, ${BRAND.name} checks her plan: prior authorization required, $480 a month. The wall shows up on day 0, not at the pharmacy counter.`,
+    body: `Before the patient leaves the room, ${BRAND.name} checks her plan: prior authorization required, $480 a month. The wall shows up on day 0, not at the pharmacy counter.`,
     Art: CoverageArt,
   },
   {
@@ -25,7 +25,7 @@ const CARDS = [
   },
   {
     title: "Family can help",
-    body: "When the plan changes, Ana can approve Medvantx Cash Pay from her phone, under a spending cap she sets, with a passkey. Free programs never touch a card.",
+    body: "When the plan changes, her daughter can approve Medvantx Cash Pay from her phone, under a spending cap she sets, with a passkey. Free programs never touch a card.",
     Art: FamilyPayArt,
   },
 ];

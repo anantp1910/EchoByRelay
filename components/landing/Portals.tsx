@@ -15,7 +15,7 @@ const MotionLink = motion.create(Link);
 
 const TILES: { role: DemoRole; href: string; title: string; sub: string; wide?: boolean; dark?: boolean }[] = [
   { role: "doctor", href: "/doctor", title: "Doctor", sub: "Speak once, approve once", wide: true },
-  { role: "patient", href: `/patient/${MARIA_ID}`, title: "Patient & family", sub: "Maria in Spanish, Ana in English" },
+  { role: "patient", href: `/patient/${MARIA_ID}`, title: "Patient & family", sub: "The patient in Spanish, family in English" },
   { role: "pharma", href: "/pharma", title: "Pharma", sub: "Scripts rescued, audited", dark: true },
 ];
 

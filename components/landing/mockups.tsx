@@ -3,11 +3,14 @@
 import { AlertTriangle, Check, CreditCard, Fingerprint, Mic, Package, Repeat, ShieldCheck } from "lucide-react";
 
 import { BRAND } from "@/components/brand";
-import { DEMO_DRUG, DEMO_PHRASE } from "@/lib/demo/constants";
+import { DEMO_DRUG } from "@/lib/demo/constants";
 import { cn } from "@/lib/utils";
 
 import { CountUpInView } from "./motion";
-import { prescriberShortName } from "./prescriber";
+
+// The landing names no one: roles only. (DEMO_PHRASE contains the patient's
+// name, so the spoken line is rebuilt from the drug fields.)
+const SPOKEN = `Continue her on ${DEMO_DRUG.name}, ${DEMO_DRUG.dose} daily`;
 
 // Presentational mini-mockups for the storyboard and portal tiles. Synthetic
 // content from lib/demo/constants; mock-backed steps carry "Simulated".
@@ -33,12 +36,12 @@ function Tick({ children }: { children: React.ReactNode }) {
 export function DoctorMock() {
   return (
     <div className={cn(card, "w-full max-w-sm")}>
-      <p className={label}>{prescriberShortName()} · Doctor</p>
+      <p className={label}>The doctor</p>
       <div className="mt-4 flex items-center gap-3">
         <span className="grid size-11 shrink-0 place-items-center rounded-full bg-foreground text-background">
           <Mic aria-hidden className="size-5" />
         </span>
-        <p className="text-base leading-snug">“{DEMO_PHRASE}.”</p>
+        <p className="text-base leading-snug">“{SPOKEN}.”</p>
       </div>
       <ul className="mt-5 flex flex-col gap-2">
         <Tick>Understood: {DEMO_DRUG.name} {DEMO_DRUG.dose}</Tick>
@@ -96,7 +99,7 @@ export function PhoneMock() {
   return (
     <div className="w-[15.5rem] rounded-[2.4rem] border-[6px] border-foreground/85 bg-card p-4 shadow-[0_30px_70px_-30px_rgba(40,48,64,0.45)]" lang="es">
       <div className="mx-auto mb-4 h-1.5 w-16 rounded-full bg-foreground/15" />
-      <p className={label}>Hola, Maria</p>
+      <p className={label}>Hola</p>
       <p className="mt-2 font-[family-name:var(--font-figtree)] text-2xl leading-tight font-light">Su medicina está en camino</p>
       <ol className="mt-4 flex flex-col gap-2 text-sm">
         {["Recetada", "Plan aprobado", "En camino"].map((s, i) => (
@@ -130,7 +133,7 @@ export function PayMock() {
     <div className={cn(card, "w-full max-w-sm")}>
       <div className="flex items-center justify-between">
         <p className={cn(label, "flex items-center gap-1.5")}>
-          <CreditCard aria-hidden className="size-3.5" /> Ana · approve payment
+          <CreditCard aria-hidden className="size-3.5" /> Her daughter · approve payment
         </p>
         <Sim />
       </div>
@@ -178,7 +181,7 @@ export function PortalPreview({ kind }: { kind: "doctor" | "patient" | "pharma" 
   if (kind === "patient")
     return (
       <div className="mx-auto w-40 rounded-[1.6rem] border-4 border-foreground/80 bg-card p-3 text-left" lang="es">
-        <p className="text-[0.6rem] tracking-widest text-muted-foreground uppercase">Hola, Maria</p>
+        <p className="text-[0.6rem] tracking-widest text-muted-foreground uppercase">Hola</p>
         <p className="mt-1 font-[family-name:var(--font-figtree)] text-base leading-tight font-light">Su medicina está en camino</p>
         <div className="mt-2 flex gap-1">
           {[1, 1, 0].map((on, i) => (
