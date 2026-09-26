@@ -5,6 +5,7 @@ import {
   type PrescriptionStatus,
 } from "@/lib/db/types";
 import { textCall } from "@/lib/llm/grok";
+import { DEMO_DRUG } from "@/lib/demo/constants";
 import type { AgentContext } from "./context";
 
 // Router. The decision (route) is PURE deterministic code implementing
@@ -155,23 +156,53 @@ const PROGRAM_TITLES: Record<RouterProgram, string> = {
   escalate: "Doctor review needed",
 };
 
-const EXPLAIN_SYSTEM = `You write ONE short paragraph (2-3 sentences), in plain language a patient could understand, explaining why this medication-access path was chosen. Use ONLY the reasons provided. Do not add clinical claims, statistics, or any fact that is not in the reasons.`;
+// Shown on the DOCTOR screen: clinician-facing, third person, patient's first
+// name, never "you".
+const EXPLAIN_SYSTEM = `You write ONE short paragraph (2-3 sentences) for the treating clinician, explaining why this medication-access path was chosen. Write in the third person and refer to the patient by first name. NEVER address the reader as "you". Use ONLY the reasons provided; add no clinical claims, statistics, or facts not in the reasons.`;
 
-async function explain(program: RouterProgram, reasons: string[]): Promise<string> {
+function fallbackExplanation(program: RouterProgram, firstName: string, drug: string): string {
+  switch (program) {
+    case "bridge":
+      return `${firstName} is already on ${drug} and the new plan requires prior authorization, so a Medvantx Bridge supply keeps therapy uninterrupted while the PA is reviewed.`;
+    case "quick_start":
+      return `${firstName} is insured but the plan requires prior authorization; a Medvantx Quick Start supply begins ${drug} today while the PA is processed.`;
+    case "pap":
+      return `${firstName}'s income is within the assistance limit, so the Patient Assistance Program provides ${drug} at no cost.`;
+    case "cash_pay":
+      return `${firstName} is above the assistance limit, so Medvantx Cash Pay offers a discounted self-pay price for ${drug}.`;
+    case "retail":
+      return `${drug} is covered for ${firstName} with a low copay, so it can be filled at a retail pharmacy.`;
+    case "retail_copay_card":
+      return `${drug} is covered for ${firstName} but the copay is high, so a manufacturer copay card lowers the out-of-pocket cost.`;
+    case "escalate":
+      return `No standard access path fits ${firstName}; routing to the doctor for a manual decision.`;
+  }
+}
+
+async function explain(
+  program: RouterProgram,
+  reasons: string[],
+  firstName: string,
+  drug: string,
+  preferTemplate = false
+): Promise<string> {
+  if (preferTemplate) return `${reasons.join(". ")}. ${fallbackExplanation(program, firstName, drug)}`;
   try {
     const text = await textCall(
       [
         { role: "system", content: EXPLAIN_SYSTEM },
         {
           role: "user",
-          content: `Path: ${program}\nReasons:\n${reasons.map((r) => `- ${r}`).join("\n")}`,
+          content: `Patient first name: ${firstName}\nDrug: ${drug}\nPath: ${program}\nReasons:\n${reasons.map((r) => `- ${r}`).join("\n")}`,
         },
       ],
       { model: "fast", fixtureKey: "router", timeoutMs: 10_000 }
     );
-    return text.trim() || reasons.join(" ");
+    return text.trim() && !/\byou(?:r|rs)?\b/i.test(text) && text.includes(firstName)
+      ? text.trim()
+      : fallbackExplanation(program, firstName, drug);
   } catch {
-    return reasons.join(" ");
+    return fallbackExplanation(program, firstName, drug);
   }
 }
 
@@ -188,12 +219,13 @@ export async function router(
 ): Promise<RouteResult> {
   const { program, reasons } = route(patient, coverage, opts);
   const rxId = ctx.rxId;
+  const firstName = String(patient.name).split(" ")[0] || String(patient.name);
   const s = await ctx.step("router", "Choosing an access path…", {
     detail: "Applying the deterministic coverage rules.",
   });
 
   try {
-    const detail = await explain(program, reasons);
+    const detail = await explain(program, reasons, firstName, DEMO_DRUG.name, opts.paDenied);
 
     if (program === "escalate") {
       await s.done(PROGRAM_TITLES.escalate, detail, { program, rxId });
@@ -219,7 +251,10 @@ export async function router(
     const action = (ENROLLMENT_PROGRAMS as readonly string[]).includes(program)
       ? "enroll"
       : "fill_retail";
-    await s.needsApproval(PROGRAM_TITLES[program], detail, { action, program, rxId });
+    await s.needsApproval(
+      opts.paDenied && program === "cash_pay" ? "Switch to Medvantx Cash Pay" : PROGRAM_TITLES[program],
+      detail, { action, program, rxId, paDenied: Boolean(opts.paDenied) }
+    );
     return { program, reasons };
   } catch (err) {
     await s.blocked("Routing failed", err instanceof Error ? err.message : String(err));

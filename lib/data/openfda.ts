@@ -137,7 +137,8 @@ function loadFixture(): LabelData {
 let cached: LabelData | null = null;
 
 /** Cached label. DEMO_MODE or live-fetch failure falls back to the fixture. */
-export async function getJardianceLabel(): Promise<LabelData> {
+export async function getJardianceLabel(opts: { preferFixture?: boolean } = {}): Promise<LabelData> {
+  if (opts.preferFixture) return loadFixture();
   if (cached) return cached;
 
   if (process.env.DEMO_MODE === "true") {

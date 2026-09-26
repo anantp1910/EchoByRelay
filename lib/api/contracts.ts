@@ -139,6 +139,14 @@ export const PaResSchema = z.object({
 });
 export type PaRes = z.infer<typeof PaResSchema>;
 
+// PATCH /api/pa/[rxId] — doctor edits the letter body of the latest draft.
+export const PaEditReqSchema = z.object({ letterMd: z.string().min(1) });
+export type PaEditReq = z.infer<typeof PaEditReqSchema>;
+
+// Generic { ok: true } response (alerts resolve, etc.).
+export const OkResSchema = z.object({ ok: z.literal(true) });
+export type OkRes = z.infer<typeof OkResSchema>;
+
 // ---------------------------------------------------------------------------
 // POST /api/checkout
 // ---------------------------------------------------------------------------
@@ -211,5 +219,13 @@ export const PharmaMetricsResSchema = z.object({
   pctUnderserved: z.number(),
   rescuedSeries: z.array(z.object({ day: z.number().int(), count: z.number().int() })),
   programMix: z.array(z.object({ program: z.string(), count: z.number().int() })),
+  // Live route computes from DB rows; never a stub. Replaces B's page constant.
+  sample: z.literal(false),
+  // ESTIMATE, not measured: unique initial PA drafts (appeals excluded) x 20 min,
+  // the AMA prior-authorization survey average, converted to hours.
+  paHoursSaved: z
+    .number()
+    .nonnegative()
+    .describe("Estimate: unique initial PA drafts x 20 min (AMA survey average), in hours"),
 });
 export type PharmaMetricsRes = z.infer<typeof PharmaMetricsResSchema>;

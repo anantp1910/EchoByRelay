@@ -10,8 +10,6 @@ import type { z } from "zod";
 
 import {
   ApiErrorSchema,
-  CheckoutResSchema,
-  DemoResSchema,
   IntakeResSchema,
   PharmaMetricsResSchema,
 } from "../lib/api/contracts";
@@ -139,9 +137,10 @@ async function main(): Promise<void> {
     ApiErrorSchema
   );
 
-  // 4. checkout
-  await check(
-    "POST /api/checkout",
+  // 4. checkout — a random (missing) orderId must 404 with the error shape.
+  //    The real checkout flow is exercised by test:checkout.
+  await checkStatus(
+    "POST /api/checkout (404 for missing order)",
     () =>
       req("POST", "/api/checkout", {
         orderId: uuid(),
@@ -150,14 +149,16 @@ async function main(): Promise<void> {
         recurring: true,
         passkeyConfirmed: true,
       }),
-    CheckoutResSchema
+    404,
+    ApiErrorSchema
   );
 
-  // 5. demo reset
-  await check(
-    "POST /api/demo",
-    () => req("POST", "/api/demo", { action: "reset" }),
-    DemoResSchema
+  // 5. Validate the demo route without resetting the team's shared database.
+  await checkStatus(
+    "POST /api/demo (invalid action)",
+    () => req("POST", "/api/demo", { action: "invalid" }),
+    400,
+    ApiErrorSchema
   );
 
   // 6. pharma metrics

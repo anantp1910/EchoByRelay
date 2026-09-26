@@ -8,6 +8,11 @@ import { db } from "./db/server";
 
 const DEMO_STATE_ID = 1;
 
+/** Stable calendar anchor for displayed demo dates and payer decisions. */
+export function dateAtDay(day: number): Date {
+  return new Date(Date.UTC(2026, 8, 26 + day));
+}
+
 /** The current simulated day (0-based) from demo_state. */
 export async function now(): Promise<{ day: number }> {
   const { data, error } = await db

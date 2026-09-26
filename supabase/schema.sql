@@ -44,6 +44,7 @@ create table if not exists care_circle (
   name       text not null,
   relation   text,
   can_pay    boolean not null default false,
+  lang       text not null default 'en' check (lang in ('es', 'en')),
   is_seed    boolean not null default false,
   created_at timestamptz not null default now()
 );
@@ -150,8 +151,9 @@ create table if not exists alerts (
 );
 
 create table if not exists messages (
-  id         uuid primary key default gen_random_uuid(),
-  patient_id uuid not null references patients(id) on delete cascade,
+  id                  uuid primary key default gen_random_uuid(),
+  patient_id          uuid not null references patients(id) on delete cascade,
+  recipient_member_id uuid references care_circle(id) on delete set null,
   sender     text,
   lang       text not null default 'en' check (lang in ('es', 'en')),
   body       text not null,
@@ -218,12 +220,19 @@ declare
 begin
   foreach t in array array[
     'agent_events', 'prescriptions', 'alerts', 'messages',
-    'orders', 'enrollments', 'pa_requests', 'payments', 'demo_state'
+    'orders', 'enrollments', 'pa_requests', 'payments', 'demo_state',
+    'care_circle', 'payment_mandates', 'audit_log'
   ]
   loop
     execute format('alter table public.%I replica identity full', t);
   end loop;
 end $$;
+
+-- A5: care-circle language + message recipient (null recipient = the patient).
+alter table care_circle add column if not exists lang text not null default 'en';
+alter table care_circle drop constraint if exists care_circle_lang_check;
+alter table care_circle add constraint care_circle_lang_check check (lang in ('es', 'en'));
+alter table messages add column if not exists recipient_member_id uuid references care_circle(id) on delete set null;
 
 -- ============================================================================
 -- Indexes
@@ -271,6 +280,9 @@ end $$;
 
 -- ============================================================================
 -- Realtime publication (guarded so re-running does not error)
+--   care_circle (Ana joins), payment_mandates (spending cap / passkey) and
+--   audit_log (pharma audit table) were added after A6. Existing databases pick
+--   them up when this file is re-run; nothing streams until it is applied.
 -- ============================================================================
 
 do $$
@@ -286,7 +298,8 @@ declare
 begin
   foreach t in array array[
     'agent_events', 'prescriptions', 'alerts', 'messages',
-    'orders', 'enrollments', 'pa_requests', 'payments', 'demo_state'
+    'orders', 'enrollments', 'pa_requests', 'payments', 'demo_state',
+    'care_circle', 'payment_mandates', 'audit_log'
   ]
   loop
     if not exists (

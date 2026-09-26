@@ -44,6 +44,7 @@ export interface JsonCallOpts {
   model: ModelTier;
   timeoutMs?: number;
   fixtureKey?: string;
+  attempts?: number;
 }
 
 export interface TextCallOpts {
@@ -76,6 +77,7 @@ function makeClient(): OpenAI {
   return new OpenAI({
     apiKey,
     baseURL: process.env.XAI_BASE_URL ?? "https://api.x.ai/v1",
+    maxRetries: 0,
   });
 }
 
@@ -138,7 +140,7 @@ export async function jsonCall<T>(
 
   let lastError: LlmError = new LlmError("api_error", "Grok call failed");
 
-  for (let attempt = 1; attempt <= 2; attempt++) {
+  for (let attempt = 1; attempt <= (opts.attempts ?? 2); attempt++) {
     const started = Date.now();
     try {
       const completion = await client.chat.completions.create(

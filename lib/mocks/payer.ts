@@ -1,6 +1,7 @@
 import "server-only";
 
 import { db } from "@/lib/db/server";
+import { dateAtDay, now } from "@/lib/clock";
 import { MARIA_PLAN_ID } from "@/lib/demo/constants";
 import type { PaStatus, Patient } from "@/lib/db/types";
 
@@ -41,7 +42,7 @@ export function checkCoverage(patient: Pick<Patient, "plan_id">, drug: string): 
 export async function submitPA(paRequestId: string): Promise<{ id: string; status: PaStatus }> {
   const { error } = await db.from("pa_requests").update({ status: "submitted" }).eq("id", paRequestId);
   if (error) {
-    console.warn(`[payer] submitPA failed: ${error.message}`);
+    throw new Error(`submitPA failed: ${error.message}`);
   }
   return { id: paRequestId, status: "submitted" };
 }
@@ -53,10 +54,10 @@ export async function decidePA(
 ): Promise<{ id: string; status: PaStatus }> {
   const { error } = await db
     .from("pa_requests")
-    .update({ status: decision, decided_at: new Date().toISOString() })
+    .update({ status: decision, decided_at: dateAtDay((await now()).day).toISOString() })
     .eq("id", id);
   if (error) {
-    console.warn(`[payer] decidePA failed: ${error.message}`);
+    throw new Error(`decidePA failed: ${error.message}`);
   }
   return { id, status: decision };
 }
