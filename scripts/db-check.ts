@@ -38,6 +38,46 @@ async function main(): Promise<void> {
     process.exit(1);
   }
 
+  // Preflight 1: the URL must be the project REST host, not the dashboard.
+  let host: string;
+  try {
+    host = new URL(url).host;
+  } catch {
+    console.error(`FAIL: NEXT_PUBLIC_SUPABASE_URL is not a valid URL.`);
+    process.exit(1);
+  }
+  if (!host.endsWith(".supabase.co")) {
+    console.error(
+      `FAIL: NEXT_PUBLIC_SUPABASE_URL host "${host}" does not end in ".supabase.co".\n` +
+        `      Use your project's Project URL (https://<project-ref>.supabase.co),\n` +
+        `      not the dashboard URL (https://supabase.com/dashboard/...).`
+    );
+    process.exit(1);
+  }
+
+  // Preflight 2: the REST endpoint must answer with JSON. A wrong host / project
+  // returns an HTML page, which we catch here with a clear message instead of a
+  // confusing HTML blob later.
+  try {
+    const probe = await fetch(`${url}/rest/v1/demo_state?select=day&limit=1`, {
+      headers: { apikey: serviceRoleKey, authorization: `Bearer ${serviceRoleKey}` },
+    });
+    const contentType = probe.headers.get("content-type") ?? "";
+    if (!contentType.includes("application/json")) {
+      const body = (await probe.text()).slice(0, 120).replace(/\s+/g, " ");
+      console.error(
+        `FAIL: REST endpoint did not return JSON ` +
+          `(status ${probe.status}, content-type "${contentType || "none"}").\n` +
+          `      First bytes: ${body}`
+      );
+      process.exit(1);
+    }
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    console.error(`FAIL: could not reach the REST endpoint: ${msg}`);
+    process.exit(1);
+  }
+
   const db = createClient(url, serviceRoleKey, {
     auth: { persistSession: false, autoRefreshToken: false },
   });

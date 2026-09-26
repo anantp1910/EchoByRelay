@@ -52,12 +52,13 @@ export async function createStubPrescription(patientId: string): Promise<string 
       .select("id")
       .single();
     if (error) {
-      console.warn(`createStubPrescription: ${error.message}`);
+      console.warn(`[stub-events] prescription insert failed: ${error.message}`);
       return null;
     }
     return (data as { id: string }).id;
   } catch (err) {
-    console.warn("createStubPrescription failed:", err);
+    const msg = err instanceof Error ? err.message : String(err);
+    console.warn(`[stub-events] prescription insert threw: ${msg}`);
     return null;
   }
 }
@@ -82,12 +83,13 @@ export async function writeStubEvents(events: StubEventInput[]): Promise<string[
     }));
     const { data, error } = await db.from("agent_events").insert(rows).select("id");
     if (error) {
-      console.warn(`writeStubEvents: ${error.message}`);
+      console.warn(`[stub-events] agent_events insert failed: ${error.message}`);
       return [];
     }
     return ((data ?? []) as { id: string }[]).map((r) => r.id);
   } catch (err) {
-    console.warn("writeStubEvents failed:", err);
+    const msg = err instanceof Error ? err.message : String(err);
+    console.warn(`[stub-events] agent_events insert threw: ${msg}`);
     return [];
   }
 }
@@ -110,12 +112,13 @@ export async function markEventDecision(
       .eq("id", eventId)
       .select("id");
     if (error) {
-      console.warn(`markEventDecision: ${error.message}`);
+      console.warn(`[stub-events] agent_events update failed for ${eventId}: ${error.message}`);
       return false;
     }
     return (data ?? []).length > 0;
   } catch (err) {
-    console.warn("markEventDecision failed:", err);
+    const msg = err instanceof Error ? err.message : String(err);
+    console.warn(`[stub-events] agent_events update threw for ${eventId}: ${msg}`);
     return false;
   }
 }

@@ -18,5 +18,7 @@ export const DEMO_DRUG = {
   indication: "type 2 diabetes with heart failure",
 } as const;
 
-// The one sentence the doctor speaks to start the demo.
-export const DEMO_PHRASE = `Starting Maria on ${DEMO_DRUG.name}, 10 mg daily`;
+// The one sentence the doctor speaks to start the demo. Maria is already on
+// Jardiance; her new insurance requires prior authorization, so this is a
+// "continue therapy" case that routes to the Medvantx Bridge program.
+export const DEMO_PHRASE = `Continue Maria on ${DEMO_DRUG.name}, 10 mg daily`;
