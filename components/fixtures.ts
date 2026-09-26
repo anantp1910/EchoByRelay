@@ -10,12 +10,13 @@ import type {
   AgentEvent,
   Alert,
   CareCircleMember,
-  EnrollmentProgram,
   Message,
   Patient,
   PrescriptionStatus,
 } from "@/lib/db/types";
 import { ANA_ID, DEMO_DRUG, MARIA_ID, MARIA_PLAN_ID } from "@/lib/demo/constants";
+
+import { PROGRAM } from "./labels";
 
 const fx = (n: number) => `f1c70000-0000-4000-8000-${String(n).padStart(12, "0")}`;
 
@@ -25,17 +26,6 @@ export const FIXTURE_MARIA_RX_ID = fx(1);
 // Fixed timestamps (demo day 0), never Date.now() — keeps renders deterministic.
 const T0 = "2026-09-26T14:02:00.000Z";
 const at = (seconds: number) => new Date(Date.parse(T0) + seconds * 1000).toISOString();
-
-const PROGRAM_LABEL: Record<EnrollmentProgram, string> = {
-  bridge: "Medvantx Bridge",
-  quick_start: "Medvantx Quick Start",
-  pap: "Patient Assistance Program",
-  cash_pay: "Medvantx Cash Pay",
-  retail_copay_card: "Retail + copay card",
-};
-export function programLabel(p: EnrollmentProgram): string {
-  return PROGRAM_LABEL[p];
-}
 
 // ---------------------------------------------------------------------------
 // Patients
@@ -51,6 +41,7 @@ export const FIXTURE_MARIA: Patient = {
   plan_id: MARIA_PLAN_ID,
   income_band: "above_pap",
   on_drug_before: true,
+  conditions: ["type 2 diabetes", "heart failure"],
   is_seed: true,
   created_at: T0,
 };
@@ -68,8 +59,10 @@ export const FIXTURE_ANA: CareCircleMember = {
 /** Doctor's "today" list: patient + current Rx summary. */
 export interface PatientRow {
   patient: Pick<Patient, "id" | "name" | "language" | "rural">;
-  drug: string;
-  status: PrescriptionStatus;
+  /** Latest prescription; null when the patient has none yet. */
+  rxId?: string | null;
+  drug: string | null;
+  status: PrescriptionStatus | null;
   note: string;
 }
 
@@ -154,11 +147,11 @@ export const FIXTURE_MARIA_EVENTS: AgentEvent[] = [
   }),
   event(13, {
     agent: "router",
-    status: "done",
-    title: `Routed to ${programLabel("bridge")}`,
+    status: "approved",
+    title: `Recommended: ${PROGRAM.bridge.label}`,
     detail: "Free 30-day supply ships today while the PA is reviewed. No cost to the patient.",
-    simulated: true,
-    data: { program: "bridge", supplyDays: 30, reasons: ["Already on therapy", "Insured", "New plan requires PA"] },
+    simulated: false,
+    data: { action: "enroll", program: "bridge", rxId: FIXTURE_MARIA_RX_ID },
   }),
   event(14, {
     agent: "paDrafter",
@@ -174,15 +167,11 @@ export const FIXTURE_MARIA_EVENTS: AgentEvent[] = [
 // Alerts, messages
 // ---------------------------------------------------------------------------
 
-export const ALERT_COPY: Record<Alert["kind"], { title: string; action: string }> = {
-  bridge_cliff: { title: "Bridge supply ends soon", action: "Review new path" },
-  pa_denied: { title: "Prior authorization denied", action: "Open appeal draft" },
-  no_pickup: { title: "Medicine not picked up", action: "Contact patient" },
-};
-
+/** Alert joined with its patient, for the doctor's inbox. */
 export interface AlertRow extends Alert {
+  patientId: string | null;
   patientName: string;
-  detail: string;
+  detail: string | null;
 }
 
 export const FIXTURE_ALERTS: AlertRow[] = [
@@ -194,6 +183,7 @@ export const FIXTURE_ALERTS: AlertRow[] = [
     resolved: false,
     is_seed: true,
     created_at: T0,
+    patientId: fx(103),
     patientName: "Darnell Brooks",
     detail: "Order shipped day 2, not delivered by day 9.",
   },

@@ -7,9 +7,11 @@ import {
   CreditCard,
   FilePen,
   Inbox,
+  Landmark,
   LoaderCircle,
   MessageCircle,
   Mic,
+  Package,
   Radar,
   RotateCcw,
   Route,
@@ -18,21 +20,22 @@ import {
   X,
   type LucideIcon,
 } from "lucide-react";
-import { useState } from "react";
-
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import type { AgentEvent, AgentEventStatus } from "@/lib/db/types";
 import { cn } from "@/lib/utils";
 
-import { StatusPill, toneFor, type Tone } from "./StatusPill";
+import { isRouterProgram, PROGRAM } from "./labels";
+import { StatusPill, TONE_CLASSES, toneFor, type Tone } from "./StatusPill";
 
 const AGENT: Record<string, { icon: LucideIcon; label: string }> = {
   trustGate: { icon: ShieldCheck, label: "Trust gate" },
   intake: { icon: Mic, label: "Intake" },
   coverage: { icon: ShieldCheck, label: "Coverage" },
   router: { icon: Route, label: "Router" },
+  medvantx: { icon: Package, label: "Medvantx" },
   paDrafter: { icon: FilePen, label: "PA drafter" },
+  payer: { icon: Landmark, label: "Payer" },
   patientComms: { icon: MessageCircle, label: "Patient comms" },
   checkout: { icon: CreditCard, label: "Checkout" },
   watchdog: { icon: Radar, label: "Watchdog" },
@@ -51,21 +54,14 @@ const clock = (iso: string) => iso.slice(11, 19);
 
 export type Decision = "approve" | "reject";
 
-/**
- * Agents may log "running" and the result as separate rows instead of updating
- * one row. Drop a "running" step once the same agent has a later event for the
- * same prescription, so its spinner never hangs. Expects created_at order.
- */
-export function collapseSuperseded(events: AgentEvent[]): AgentEvent[] {
-  const later = new Set<string>();
-  const keep: AgentEvent[] = [];
-  for (let i = events.length - 1; i >= 0; i--) {
-    const e = events[i];
-    const key = `${e.agent}|${e.rx_id ?? ""}`;
-    if (!(e.status === "running" && later.has(key))) keep.push(e);
-    later.add(key);
+/** Reads a string field from an event's jsonb `data`. */
+function dataField(event: AgentEvent, key: string): string | undefined {
+  const d = event.data;
+  if (d && typeof d === "object" && !Array.isArray(d)) {
+    const v = d[key];
+    if (typeof v === "string") return v;
   }
-  return keep.reverse();
+  return undefined;
 }
 
 interface AgentTimelineProps {
@@ -73,8 +69,12 @@ interface AgentTimelineProps {
   state?: "loading" | "ready" | "error";
   error?: string | null;
   onRetry?: () => void;
-  /** Called from approval cards. Omit (or set readOnly) to hide the buttons. */
-  onDecision?: (event: AgentEvent, decision: Decision) => Promise<void> | void;
+  /**
+   * Called from approval cards. Should apply the decision optimistically (the
+   * card closes at once); the slow server work finishes behind Realtime.
+   * Omit (or set readOnly) to hide the buttons.
+   */
+  onDecision?: (event: AgentEvent, decision: Decision) => void;
   readOnly?: boolean;
   /** dense = doctor console; comfortable = pharma / wide views. */
   density?: "dense" | "comfortable";
@@ -96,8 +96,6 @@ export function AgentTimeline({
   emptyHint = "Steps appear here as soon as a prescription starts moving.",
   className,
 }: AgentTimelineProps) {
-  const steps = collapseSuperseded(events);
-
   if (state === "loading") {
     return (
       <div className={cn("space-y-3", className)} aria-busy="true" aria-label="Loading agent activity">
@@ -137,7 +135,7 @@ export function AgentTimeline({
     );
   }
 
-  if (steps.length === 0) {
+  if (events.length === 0) {
     return (
       <div
         className={cn(
@@ -155,11 +153,11 @@ export function AgentTimeline({
   return (
     <ol className={cn("relative", className)} aria-live="polite" aria-label="Agent activity">
       <AnimatePresence initial={false}>
-        {steps.map((event, i) => (
+        {events.map((event, i) => (
           <TimelineStep
             key={event.id}
             event={event}
-            last={i === steps.length - 1}
+            last={i === events.length - 1}
             density={density}
             onDecision={readOnly ? undefined : onDecision}
             readOnly={readOnly}
@@ -222,6 +220,9 @@ function TimelineStep({
 }) {
   const meta = agentMeta(event.agent);
   const dense = density === "dense";
+  const program = dataField(event, "program");
+  const decidedBy = dataField(event, "decidedBy");
+  const decidedVia = dataField(event, "decidedVia");
 
   return (
     <motion.li
@@ -258,9 +259,26 @@ function TimelineStep({
           <p className={cn("mt-0.5 text-muted-foreground", dense ? "text-sm" : "text-[0.95rem]")}>{event.detail}</p>
         )}
 
-        {event.status !== "running" && event.status !== "done" && (
-          <div className="mt-1.5">
-            <StatusPill status={event.status} />
+        {(isRouterProgram(program) || (event.status !== "running" && event.status !== "done")) && (
+          <div className="mt-1.5 flex flex-wrap items-center gap-2">
+            {event.status !== "running" && event.status !== "done" && <StatusPill status={event.status} />}
+            {isRouterProgram(program) && (
+              <span
+                data-program={program}
+                className={cn(
+                  "inline-flex h-6 items-center rounded-full border px-2 text-xs font-medium",
+                  TONE_CLASSES[PROGRAM[program].tone]
+                )}
+              >
+                {PROGRAM[program].label}
+              </span>
+            )}
+            {decidedBy && (event.status === "approved" || event.status === "rejected") && (
+              <span className="text-xs text-muted-foreground">
+                by {decidedBy}
+                {decidedVia === "voice" ? " · by voice" : ""}
+              </span>
+            )}
           </div>
         )}
 
@@ -283,18 +301,6 @@ function ApprovalCard({
   onDecision?: AgentTimelineProps["onDecision"];
   readOnly: boolean;
 }) {
-  const [busy, setBusy] = useState<Decision | null>(null);
-
-  async function decide(decision: Decision) {
-    if (!onDecision) return;
-    setBusy(decision);
-    try {
-      await onDecision(event, decision);
-    } finally {
-      setBusy(null);
-    }
-  }
-
   return (
     <motion.div
       initial={{ opacity: 0, height: 0 }}
@@ -309,17 +315,11 @@ function ApprovalCard({
         </p>
         {!readOnly && onDecision && (
           <div className="mt-2 flex flex-wrap items-center gap-2">
-            <Button size="sm" onClick={() => decide("approve")} disabled={busy !== null} data-testid="approve">
-              {busy === "approve" ? <LoaderCircle aria-hidden className="animate-spin" /> : <Check aria-hidden />}
+            <Button size="sm" onClick={() => onDecision(event, "approve")} data-testid="approve">
+              <Check aria-hidden />
               Approve
             </Button>
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={() => decide("reject")}
-              disabled={busy !== null}
-              data-testid="reject"
-            >
+            <Button size="sm" variant="outline" onClick={() => onDecision(event, "reject")} data-testid="reject">
               <X aria-hidden /> Reject
             </Button>
             <span className="text-xs text-muted-foreground">or say &ldquo;approve&rdquo;</span>

@@ -1,44 +1,71 @@
 "use client";
 
-import { Bell, BellOff, Languages, MapPin, Users } from "lucide-react";
+import { Bell, BellOff, Languages, MapPin, RotateCcw, TriangleAlert, Users } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 
 import { AppHeader } from "@/components/AppHeader";
 import { AgentTimeline, type Decision } from "@/components/AgentTimeline";
-import {
-  ALERT_COPY,
-  FIXTURE_ALERTS,
-  FIXTURE_PATIENT_ROWS,
-  type AlertRow,
-  type PatientRow,
-} from "@/components/fixtures";
-import { StatusPill } from "@/components/StatusPill";
+import type { AlertRow, PatientRow } from "@/components/fixtures";
+import { ALERT, alertTone } from "@/components/labels";
+import { StatusPill, TONE_CLASSES } from "@/components/StatusPill";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
+import { Skeleton } from "@/components/ui/skeleton";
 import { HAS_SUPABASE, useLiveEvents } from "@/components/useLiveEvents";
 import { VoiceButton } from "@/components/VoiceButton";
 import { approve, intake } from "@/lib/api/client";
+import type { ApproveVia } from "@/lib/api/contracts";
 import type { AgentEvent } from "@/lib/db/types";
 import { MARIA_ID } from "@/lib/demo/constants";
 import { cn } from "@/lib/utils";
+
+import { useDoctorData } from "./useDoctorData";
+
+/** "approve" / "approved" / "aprobar" alone approves the pending card by voice. */
+const APPROVE_COMMAND = /^\s*(approve|approved|aprobar|aprobado)[\s.!]*$/i;
 
 /** Doctor portal: calm, dense, fast. Patients · voice + timeline · alerts. */
 export function DoctorConsole() {
   const [selectedId, setSelectedId] = useState<string>(MARIA_ID);
   const [patientsOpen, setPatientsOpen] = useState(false);
-  const selected = FIXTURE_PATIENT_ROWS.find((r) => r.patient.id === selectedId) ?? FIXTURE_PATIENT_ROWS[0];
-  const { events, state, error, retry, replay, patch } = useLiveEvents({ patientId: selected.patient.id });
-  const alerts = FIXTURE_ALERTS.filter((a) => !a.resolved);
+  const doctor = useDoctorData();
+  const selected = doctor.rows.find((r) => r.patient.id === selectedId) ?? doctor.rows[0] ?? null;
+  const live = useLiveEvents({ patientId: selected?.patient.id ?? selectedId });
+
+  // Show the current prescription's steps only; older runs stay in the audit trail.
+  const rxId = selected?.rxId;
+  const events = rxId ? live.events.filter((e) => e.rx_id === rxId || e.rx_id === null) : live.events;
+  const pending = events.findLast((e) => e.status === "needs_approval");
+
+  function decide(event: AgentEvent, decision: Decision, via: ApproveVia = "click") {
+    // Optimistic: the card closes at once. Enrollment takes ~10s server-side and
+    // its steps stream in over Realtime; approving twice is a server no-op.
+    live.setOptimistic(event.id, decision === "approve" ? "approved" : "rejected");
+    toast.success(decision === "approve" ? "Approved" : "Rejected", { description: event.title });
+    if (!HAS_SUPABASE) return;
+    approve({ eventId: event.id, decision, actor: "doctor", via }).catch((e: unknown) => {
+      live.setOptimistic(event.id, null);
+      toast.error("Approval didn't go through", {
+        description: e instanceof Error ? e.message : "Please try again.",
+      });
+    });
+  }
 
   async function handleTranscript(transcript: string) {
+    if (APPROVE_COMMAND.test(transcript)) {
+      if (pending) decide(pending, "approve", "voice");
+      else toast("Nothing is waiting for approval");
+      return;
+    }
+    setSelectedId(MARIA_ID);
     if (!HAS_SUPABASE) {
-      replay();
+      live.replay();
       toast("Running the demo steps", { description: "Offline fixtures: no Supabase keys set." });
       return;
     }
     try {
-      await intake({ patientId: selected.patient.id, transcript });
+      await intake({ patientId: MARIA_ID, transcript });
     } catch (e) {
       toast.error("Couldn't start the prescription", {
         description: e instanceof Error ? e.message : "Please try again.",
@@ -46,30 +73,19 @@ export function DoctorConsole() {
     }
   }
 
-  async function handleDecision(event: AgentEvent, decision: Decision) {
-    const status = decision === "approve" ? "approved" : "rejected";
-    if (HAS_SUPABASE) {
-      try {
-        await approve({ eventId: event.id, decision, actor: "doctor", via: "click" });
-      } catch (e) {
-        toast.error("Approval didn't go through", {
-          description: e instanceof Error ? e.message : "Please try again.",
-        });
-        return;
-      }
-    }
-    patch(event.id, { status });
-    toast.success(decision === "approve" ? "Approved" : "Rejected", { description: event.title });
+  function openPatient(id: string) {
+    setSelectedId(id);
+    setPatientsOpen(false);
   }
 
   const patientList = (
     <PatientList
-      rows={FIXTURE_PATIENT_ROWS}
-      selectedId={selected.patient.id}
-      onSelect={(id) => {
-        setSelectedId(id);
-        setPatientsOpen(false);
-      }}
+      rows={doctor.rows}
+      state={doctor.state}
+      error={doctor.error}
+      onRetry={doctor.retry}
+      selectedId={selected?.patient.id ?? null}
+      onSelect={openPatient}
     />
   );
 
@@ -91,13 +107,13 @@ export function DoctorConsole() {
 
       <div className="mx-auto grid w-full max-w-[1600px] flex-1 content-start items-start gap-4 p-4 lg:grid-cols-[280px_minmax(0,1fr)_320px] lg:p-6">
         <aside aria-label="Today's patients" className="hidden lg:block">
-          <Panel title="Today" count={FIXTURE_PATIENT_ROWS.length}>
+          <Panel title="Today" count={doctor.state === "ready" ? doctor.rows.length : undefined}>
             {patientList}
           </Panel>
         </aside>
 
         <main className="flex min-w-0 flex-col gap-4">
-          <PatientHeader row={selected} />
+          <PatientHeader row={selected} loading={doctor.state === "loading"} />
 
           <section aria-label="New prescription by voice" className="rounded-xl border border-line bg-card p-5">
             <VoiceButton onTranscript={handleTranscript} />
@@ -108,24 +124,24 @@ export function DoctorConsole() {
               <h2 id="timeline-title" className="text-base font-bold">
                 Agent activity
               </h2>
-              <span className="text-xs text-muted-foreground">Live</span>
+              <span className="text-xs text-muted-foreground">{live.source === "live" ? "Live" : "Offline fixtures"}</span>
             </div>
             <AgentTimeline
               events={events}
-              state={state}
-              error={error}
-              onRetry={retry}
-              onDecision={handleDecision}
+              state={live.state}
+              error={live.error}
+              onRetry={live.retry}
+              onDecision={(event, decision) => decide(event, decision)}
               density="dense"
-              emptyTitle={`Nothing in motion for ${selected.patient.name.split(" ")[0]}`}
+              emptyTitle={`Nothing in motion for ${selected?.patient.name.split(" ")[0] ?? "this patient"}`}
               emptyHint="Hold the mic and say the prescription to start."
             />
           </section>
         </main>
 
         <aside aria-label="Alerts">
-          <Panel title="Alerts" count={alerts.length} icon={Bell}>
-            <AlertsInbox alerts={alerts} />
+          <Panel title="Alerts" count={doctor.state === "ready" ? doctor.alerts.length : undefined} icon={Bell}>
+            <AlertsInbox alerts={doctor.alerts} loading={doctor.state === "loading"} onOpen={openPatient} />
           </Panel>
         </aside>
       </div>
@@ -158,15 +174,48 @@ function Panel({
   );
 }
 
+function RowSkeletons() {
+  return (
+    <div className="flex flex-col gap-3 p-2" aria-busy="true" aria-label="Loading">
+      {[0, 1, 2].map((i) => (
+        <div key={i} className="space-y-1.5">
+          <Skeleton className="h-4 w-3/4" />
+          <Skeleton className="h-3 w-1/2" />
+        </div>
+      ))}
+    </div>
+  );
+}
+
 function PatientList({
   rows,
+  state,
+  error,
+  onRetry,
   selectedId,
   onSelect,
 }: {
   rows: PatientRow[];
-  selectedId: string;
+  state: "loading" | "ready" | "error";
+  error: string | null;
+  onRetry: () => void;
+  selectedId: string | null;
   onSelect: (id: string) => void;
 }) {
+  if (state === "loading") return <RowSkeletons />;
+  if (state === "error") {
+    return (
+      <div role="alert" className="flex flex-col items-start gap-2 p-2 text-sm text-block-strong">
+        <span className="inline-flex items-center gap-1.5 font-medium">
+          <TriangleAlert aria-hidden className="size-4" /> Couldn&apos;t load patients
+        </span>
+        {error && <span>{error}</span>}
+        <Button variant="outline" size="sm" onClick={onRetry}>
+          <RotateCcw aria-hidden /> Try again
+        </Button>
+      </div>
+    );
+  }
   if (rows.length === 0) {
     return <p className="px-2 py-6 text-center text-sm text-muted-foreground">No patients scheduled today.</p>;
   }
@@ -180,6 +229,7 @@ function PatientList({
               type="button"
               onClick={() => onSelect(row.patient.id)}
               aria-current={active ? "true" : undefined}
+              data-testid={`patient-row-${row.patient.id}`}
               className={cn(
                 "flex w-full flex-col gap-1 rounded-lg px-3 py-2 text-left transition-colors hover:bg-muted",
                 active && "bg-accent hover:bg-accent"
@@ -187,10 +237,10 @@ function PatientList({
             >
               <span className="flex items-center justify-between gap-2">
                 <span className="truncate text-sm font-medium">{row.patient.name}</span>
-                <StatusPill status={row.status} />
+                {row.status && <StatusPill status={row.status} />}
               </span>
               <span className="truncate text-xs text-muted-foreground">
-                {row.drug} · {row.note}
+                {[row.drug, row.note].filter(Boolean).join(" · ")}
               </span>
             </button>
           </li>
@@ -200,7 +250,21 @@ function PatientList({
   );
 }
 
-function PatientHeader({ row }: { row: PatientRow }) {
+function PatientHeader({ row, loading }: { row: PatientRow | null; loading: boolean }) {
+  if (!row) {
+    return (
+      <section className="rounded-xl border border-line bg-card px-5 py-4">
+        {loading ? (
+          <div className="space-y-2" aria-busy="true" aria-label="Loading patient">
+            <Skeleton className="h-7 w-48" />
+            <Skeleton className="h-4 w-32" />
+          </div>
+        ) : (
+          <p className="text-sm text-muted-foreground">Pick a patient to begin.</p>
+        )}
+      </section>
+    );
+  }
   const { patient } = row;
   return (
     <section className="flex flex-wrap items-center gap-x-4 gap-y-2 rounded-xl border border-line bg-card px-5 py-4">
@@ -216,41 +280,57 @@ function PatientHeader({ row }: { row: PatientRow }) {
               <MapPin aria-hidden className="size-3.5" /> Rural
             </span>
           )}
-          <span>{row.drug}</span>
+          {row.drug && <span>{row.drug}</span>}
+          <span>{row.note}</span>
         </p>
       </div>
-      <StatusPill status={row.status} size="md" className="ml-auto" />
+      {row.status && <StatusPill status={row.status} size="md" className="ml-auto" />}
     </section>
   );
 }
 
-function AlertsInbox({ alerts }: { alerts: AlertRow[] }) {
+function AlertsInbox({
+  alerts,
+  loading,
+  onOpen,
+}: {
+  alerts: AlertRow[];
+  loading: boolean;
+  onOpen: (patientId: string) => void;
+}) {
+  if (loading) return <RowSkeletons />;
   if (alerts.length === 0) {
     return (
       <div className="flex flex-col items-center gap-2 px-2 py-8 text-center">
         <BellOff aria-hidden className="size-5 text-muted-foreground" />
-        <p className="text-sm text-muted-foreground">All clear. The watchdog will flag bridge cliffs, denials, and missed pickups here.</p>
+        <p className="text-sm text-muted-foreground">
+          All clear. The watchdog will flag bridge cliffs, denials, and missed pickups here.
+        </p>
       </div>
     );
   }
   return (
-    <ul className="flex flex-col gap-2">
+    <ul className="flex flex-col gap-2" aria-live="polite">
       {alerts.map((a) => {
-        const copy = ALERT_COPY[a.kind];
-        const critical = a.severity === "critical";
+        const copy = ALERT[a.kind];
         return (
           <li
             key={a.id}
-            className={cn(
-              "rounded-lg border p-3",
-              critical ? "border-block/40 bg-block-soft" : "border-risk/40 bg-risk-soft"
-            )}
+            data-alert-kind={a.kind}
+            className={cn("rounded-lg border p-3", TONE_CLASSES[alertTone(a.kind, a.severity)])}
           >
-            <p className={cn("text-sm font-bold", critical ? "text-block-strong" : "text-risk-strong")}>{copy.title}</p>
-            <p className="mt-0.5 text-sm">
-              <span className="font-medium">{a.patientName}</span> · {a.detail}
+            <p className="text-sm font-bold">{copy.title}</p>
+            <p className="mt-0.5 text-sm text-foreground">
+              <span className="font-medium">{a.patientName}</span>
+              {a.detail && <> · {a.detail}</>}
             </p>
-            <Button size="sm" variant="outline" className="mt-2" disabled title="Wired in Phase 7">
+            <Button
+              size="sm"
+              variant="outline"
+              className="mt-2"
+              disabled={!a.patientId}
+              onClick={() => a.patientId && onOpen(a.patientId)}
+            >
               {copy.action}
             </Button>
           </li>

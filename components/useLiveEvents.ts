@@ -1,9 +1,9 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { isSupabaseConfigured, supabase } from "@/lib/db/client";
-import type { AgentEvent } from "@/lib/db/types";
+import type { AgentEvent, AgentEventStatus } from "@/lib/db/types";
 import { MARIA_ID } from "@/lib/demo/constants";
 
 import { FIXTURE_MARIA_EVENTS } from "./fixtures";
@@ -35,10 +35,13 @@ interface Options {
   limit?: number;
 }
 
+type Decided = Extract<AgentEventStatus, "approved" | "rejected">;
+
 /**
- * agent_events for the timeline, live via Supabase Realtime. Falls back to the
- * Maria fixtures when Supabase keys are missing, so every page renders offline.
- * `replay()` (fixture mode only) re-streams the fixtures step by step.
+ * agent_events for the timeline, live via Supabase Realtime. One row per step:
+ * INSERT adds a card, UPDATE replaces it in place by id (running → done, etc.).
+ * Falls back to the Maria fixtures when Supabase keys are missing, so every page
+ * renders offline. `replay()` (fixture mode only) re-streams the fixtures.
  */
 export function useLiveEvents({ patientId, rxId, limit = 100 }: Options = {}) {
   const source: LiveSource = HAS_SUPABASE ? "live" : "fixture";
@@ -48,6 +51,9 @@ export function useLiveEvents({ patientId, rxId, limit = 100 }: Options = {}) {
   const [state, setState] = useState<LiveState>(HAS_SUPABASE ? "loading" : "ready");
   const [error, setError] = useState<string | null>(null);
   const [attempt, setAttempt] = useState(0);
+  // Optimistic decisions from approval cards, applied only while the row is
+  // still needs_approval — once Realtime delivers the real status, it wins.
+  const [decided, setDecided] = useState<Record<string, Decided>>({});
   const timers = useRef<ReturnType<typeof setTimeout>[]>([]);
 
   // Scope changed (e.g. doctor picked another patient): reset during render,
@@ -59,50 +65,50 @@ export function useLiveEvents({ patientId, rxId, limit = 100 }: Options = {}) {
     setEvents(HAS_SUPABASE ? [] : fixturesFor(patientId));
     setState(HAS_SUPABASE ? "loading" : "ready");
     setError(null);
+    setDecided({});
   }
 
   useEffect(() => {
     if (!supabase) return;
     const client = supabase;
     let cancelled = false;
-    let cleanup: (() => void) | undefined;
+
+    // Subscribe before loading so a step that lands mid-load is never lost;
+    // upsert makes a row arriving twice harmless.
+    const filter = rxId ? `rx_id=eq.${rxId}` : patientId ? `patient_id=eq.${patientId}` : undefined;
+    const channel = client
+      .channel(`agent_events:${rxId ?? patientId ?? "all"}:${attempt}`)
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "agent_events", ...(filter ? { filter } : {}) },
+        (payload) => {
+          if (payload.eventType === "DELETE") {
+            const id = (payload.old as Partial<AgentEvent>).id;
+            setEvents((list) => list.filter((e) => e.id !== id));
+          } else {
+            setEvents((list) => upsert(list, payload.new as AgentEvent));
+          }
+        }
+      )
+      .subscribe();
 
     (async () => {
       try {
+        // Newest `limit` rows, displayed oldest → newest.
         let q = client
           .from("agent_events")
           .select("*")
-          .order("created_at", { ascending: true })
+          .order("created_at", { ascending: false })
           .limit(limit);
         if (patientId) q = q.eq("patient_id", patientId);
         if (rxId) q = q.eq("rx_id", rxId);
         const { data, error: err } = await q;
         if (cancelled) return;
         if (err) throw new Error(err.message);
-        setEvents((data ?? []) as AgentEvent[]);
+        const loaded = ((data ?? []) as AgentEvent[]).reverse();
+        // Rows Realtime already delivered are at least as new as the load.
+        setEvents((seen) => seen.reduce(upsert, loaded));
         setState("ready");
-
-        const filter = rxId
-          ? `rx_id=eq.${rxId}`
-          : patientId
-            ? `patient_id=eq.${patientId}`
-            : undefined;
-        const channel = client
-          .channel(`agent_events:${rxId ?? patientId ?? "all"}:${attempt}`)
-          .on(
-            "postgres_changes",
-            { event: "*", schema: "public", table: "agent_events", ...(filter ? { filter } : {}) },
-            (payload) => {
-              if (payload.eventType === "DELETE") {
-                const id = (payload.old as Partial<AgentEvent>).id;
-                setEvents((list) => list.filter((e) => e.id !== id));
-              } else {
-                setEvents((list) => upsert(list, payload.new as AgentEvent));
-              }
-            }
-          )
-          .subscribe();
-        cleanup = () => void client.removeChannel(channel);
       } catch (e) {
         if (cancelled) return;
         setError(e instanceof Error ? e.message : "Could not load events");
@@ -112,7 +118,7 @@ export function useLiveEvents({ patientId, rxId, limit = 100 }: Options = {}) {
 
     return () => {
       cancelled = true;
-      cleanup?.();
+      void client.removeChannel(channel);
     };
   }, [patientId, rxId, limit, attempt]);
 
@@ -147,10 +153,23 @@ export function useLiveEvents({ patientId, rxId, limit = 100 }: Options = {}) {
     });
   }, [patientId]);
 
-  /** Optimistic local status change (approval cards) until Realtime confirms it. */
-  const patch = useCallback((id: string, changes: Partial<AgentEvent>) => {
-    setEvents((list) => list.map((e) => (e.id === id ? { ...e, ...changes } : e)));
+  /** Show a decision on an approval card right away; pass null to roll it back. */
+  const setOptimistic = useCallback((id: string, status: Decided | null) => {
+    setDecided((prev) => {
+      const next = { ...prev };
+      if (status) next[id] = status;
+      else delete next[id];
+      return next;
+    });
   }, []);
 
-  return { events, state, error, source, retry, replay, patch };
+  const view = useMemo(
+    () =>
+      events.map((e) =>
+        e.status === "needs_approval" && decided[e.id] ? { ...e, status: decided[e.id] } : e
+      ),
+    [events, decided]
+  );
+
+  return { events: view, state, error, source, retry, replay, setOptimistic };
 }
