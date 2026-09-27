@@ -38,8 +38,10 @@ test("Maria: sentence to rescue, through the real screens", async ({ page }) => 
 
   await test.step("doctor sends the sentence", async () => {
     await page.goto("/doctor");
+    // The server render shows the text box until hydration swaps in the mic, so
+    // wait for the hydrated "Type instead" toggle before typing.
+    await page.getByRole("button", { name: "Type instead" }).click();
     const input = page.getByTestId("voice-text-input");
-    if (!(await input.isVisible())) await page.getByRole("button", { name: "Type instead" }).click();
     await input.fill(SENTENCE);
     await page.getByTestId("voice-send").click();
     await expect(card(page, "router", "needs_approval", /Bridge/)).toBeVisible({ timeout: 45_000 });
