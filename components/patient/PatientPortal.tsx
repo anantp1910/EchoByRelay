@@ -288,14 +288,12 @@ export function PatientPortal({ patientId }: { patientId: string }) {
       ) : (
         <div lang={lang} className="grid grid-cols-[minmax(0,1fr)] items-start gap-4 lg:grid-cols-2 xl:grid-cols-3">
           {/* Feature card: where the medicine is, in one line. */}
-          <DashCard feature id="status" className="lg:col-span-2 xl:col-span-1 xl:row-span-2">
-            <div className="flex min-h-[15rem] flex-col">
+          <DashCard feature id="status" className="lg:col-span-2 xl:col-span-1">
+            <div className="flex min-h-[13rem] flex-col">
               <div className="flex items-start justify-between gap-3">
                 {rx ? <StatusPill status={rx.status} label={t.status[rx.status]} size="lg" /> : <span />}
                 {data.day !== null && <span className="font-mono text-base text-muted-foreground">{t.day(data.day)}</span>}
               </div>
-              {/* eslint-disable-next-line @next/next/no-img-element -- local static pill art */}
-              <img src="/echo-pill.svg" alt="" aria-hidden className="mx-auto my-4 w-40 drop-shadow-[0_0_30px_rgba(95,230,218,0.35)]" draggable={false} />
               <p className="mt-auto font-[family-name:var(--font-figtree)] text-[clamp(1.9rem,3vw,2.6rem)] leading-tight font-light">
                 {rx ? t.steps[Math.min(step, t.steps.length - 1)] : t.noRx}
               </p>
@@ -371,7 +369,7 @@ export function PatientPortal({ patientId }: { patientId: string }) {
             </Card>
           )}
 
-          <Card id="circle">
+          <Card id="circle" className="lg:col-span-2 xl:col-span-3">
             <CardTitle icon={HeartHandshake}>{t.circle}</CardTitle>
             <Feed messages={feed} circle={circle} lang={lang} t={t} />
           </Card>
@@ -501,41 +499,72 @@ function Feed({
     );
   }
 
+  const H = lang === "es"
+    ? { when: "Cuándo", from: "De", lang: "Idioma", update: "Novedad", circle: "Círculo" }
+    : { when: "When", from: "From", lang: "Language", update: "Update", circle: "Care circle" };
+  const cell = "px-3 py-3 align-top first:pl-0 last:pr-0 max-sm:p-0";
+  // Phones: each row stacks (time · from · language, then the update).
+  const row = "border-b border-line text-base last:border-0 max-sm:grid max-sm:grid-cols-[auto_auto_1fr] max-sm:items-center max-sm:gap-x-3 max-sm:gap-y-1 max-sm:py-3";
+  const updateCell = "max-sm:col-span-3";
+
   return (
-    <ul className="mt-4 flex flex-col gap-3" aria-live="polite" data-testid="care-feed">
-      <AnimatePresence initial={false}>
-        {items.map((item) =>
-          item.kind === "joined" ? (
-            <motion.li
-              key={item.id}
-              layout="position"
-              initial={{ opacity: 0, y: 6 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="flex items-center gap-2 px-1 text-base text-muted-foreground"
-            >
-              <UserPlus aria-hidden className="size-4 shrink-0" />
-              {t.joined(item.member.name.split(" ")[0], lang === "es" ? "cuidadora" : "caregiver")}
-            </motion.li>
-          ) : (
-            <motion.li
-              key={item.id}
-              layout="position"
-              initial={{ opacity: 0, y: 6 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="rounded-2xl rounded-tl-sm bg-accent px-4 py-3 text-accent-foreground"
-              data-testid="care-message"
-            >
-              <p lang={item.message.lang}>{plainNames(item.message.body)}</p>
-              <p className="mt-1 flex items-center gap-2 text-xs text-muted-foreground">
-                <span>{BRAND.name}</span>
-                <span className="rounded border border-line px-1 font-mono uppercase">{item.message.lang}</span>
-                <LocalTime iso={item.message.created_at} />
-              </p>
-            </motion.li>
-          )
-        )}
-      </AnimatePresence>
-    </ul>
+    <div className="mt-4 sm:overflow-x-auto">
+      <table className="w-full border-collapse text-left max-sm:block sm:min-w-[34rem]" aria-live="polite" data-testid="care-feed">
+        <thead className="max-sm:sr-only">
+          <tr className="border-b border-line text-sm text-muted-foreground">
+            <th scope="col" className={cn(cell, "w-32 font-normal")}>{H.when}</th>
+            <th scope="col" className={cn(cell, "w-28 font-normal")}>{H.from}</th>
+            <th scope="col" className={cn(cell, "w-24 font-normal")}>{H.lang}</th>
+            <th scope="col" className={cn(cell, "font-normal")}>{H.update}</th>
+          </tr>
+        </thead>
+        <tbody className="max-sm:block">
+          <AnimatePresence initial={false}>
+            {items.map((item) =>
+              item.kind === "joined" ? (
+                <motion.tr
+                  key={item.id}
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  className={cn(row, "text-muted-foreground")}
+                >
+                  <td className={cell}>
+                    <LocalTime iso={item.at} className="text-sm" />
+                  </td>
+                  <td className={cell}>{H.circle}</td>
+                  <td className={cell}>–</td>
+                  <td className={cn(cell, updateCell)}>
+                    <span className="inline-flex items-center gap-2">
+                      <UserPlus aria-hidden className="size-4 shrink-0" />
+                      {t.joined(item.member.name.split(" ")[0], lang === "es" ? "cuidadora" : "caregiver")}
+                    </span>
+                  </td>
+                </motion.tr>
+              ) : (
+                <motion.tr
+                  key={item.id}
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  className={row}
+                  data-testid="care-message"
+                >
+                  <td className={cell}>
+                    <LocalTime iso={item.message.created_at} className="text-sm" />
+                  </td>
+                  <td className={cell}>{BRAND.name}</td>
+                  <td className={cell}>
+                    <span className="rounded border border-line px-1.5 font-mono text-xs uppercase">{item.message.lang}</span>
+                  </td>
+                  <td className={cn(cell, updateCell, "leading-relaxed")} lang={item.message.lang}>
+                    {plainNames(item.message.body)}
+                  </td>
+                </motion.tr>
+              )
+            )}
+          </AnimatePresence>
+        </tbody>
+      </table>
+    </div>
   );
 }
 
@@ -562,9 +591,9 @@ function LangToggle({ lang, onChange }: { lang: Language; onChange: (l: Language
   );
 }
 
-function Card({ id, children }: { id?: string; children: React.ReactNode }) {
+function Card({ id, className, children }: { id?: string; className?: string; children: React.ReactNode }) {
   return (
-    <section id={id} className="glow-hover min-w-0 scroll-mt-20 rounded-2xl border border-line bg-card p-5 sm:p-6">
+    <section id={id} className={cn("glow-hover min-w-0 scroll-mt-20 rounded-2xl border border-line bg-card p-5 sm:p-6", className)}>
       {children}
     </section>
   );
