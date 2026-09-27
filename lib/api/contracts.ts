@@ -248,11 +248,12 @@ export type TranscribeRes = z.infer<typeof TranscribeResSchema>;
 
 // ---------------------------------------------------------------------------
 // POST /api/ask  { patientId, memberId, question } -> { answer, source, answeredBy }
-//   Care-circle Q&A from the patient's Backboard thread only. memberId null =
-//   the patient. source is always "backboard" (the facts come from the Backboard
-//   thread); answeredBy says who wrote the sentence: Backboard's own chat,
-//   grok/gemini from the thread notes, the dosing guardrail, or "unavailable"
-//   (friendly "care team will follow up" message, still HTTP 200).
+//   Care-circle Q&A from the patient's retrieved Backboard memories only
+//   (Backboard memory search). memberId null = the patient. source is always
+//   "backboard"; answeredBy says who wrote the sentence: grok/gemini from the
+//   retrieved memories, the dosing guardrail, or "unavailable" (friendly
+//   "care team will follow up" message, still HTTP 200). "backboard" is kept
+//   in the enum for compatibility but is no longer produced.
 // ---------------------------------------------------------------------------
 export const AskReqSchema = z.object({
   patientId: Uuid,

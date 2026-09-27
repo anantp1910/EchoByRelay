@@ -4,7 +4,7 @@
 //
 // 400 validation_error; 404 if the patient is unknown or the member is not in
 // that patient's care circle. Otherwise always 200: answers come only from the
-// patient's Backboard thread; clinical/dosing questions are declined; if
+// patient's retrieved Backboard memories; clinical/dosing questions are declined; if
 // Backboard or the AI is unavailable the answer is a friendly "the care team
 // will follow up" (20 s budget). Every Q&A is written to audit_log.
 
@@ -46,12 +46,12 @@ export async function POST(request: NextRequest): Promise<Response> {
   const { askAboutPatient } = await import("@/lib/memory/backboard");
   const result = await askAboutPatient(patientId, askerName, lang, question);
   const ms = Date.now() - started;
-  console.info(`[ask] answeredBy=${result.answeredBy} notes=${result.notes} latency=${ms}ms`);
+  console.info(`[ask] answeredBy=${result.answeredBy} memoriesUsed=${result.memoriesUsed} latency=${ms}ms`);
 
   const { error: auditError } = await db.from("audit_log").insert({
     actor: memberId ? `care_circle:${askerName}` : "patient",
     action: "ask.answered",
-    payload: { patientId, memberId, question, answer: result.answer, answeredBy: result.answeredBy, notes: result.notes, ms },
+    payload: { patientId, memberId, question, answer: result.answer, answeredBy: result.answeredBy, memoriesUsed: result.memoriesUsed, ms },
   });
   if (auditError) console.warn(`[ask] audit_log insert failed: ${auditError.message}`);
 

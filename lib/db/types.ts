@@ -92,6 +92,8 @@ export interface Patient {
   conditions: string[];
   /** Backboard thread holding this patient's care-circle notes (null until the first update). */
   backboard_thread_id?: string | null;
+  /** Backboard assistant holding this patient's memories (null until the first update; reset clears it). */
+  backboard_assistant_id?: string | null;
   is_seed: boolean;
   created_at: string;
 }

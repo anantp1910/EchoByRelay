@@ -175,13 +175,17 @@ RULES:
 - Write one message per recipient, in that recipient's language, echoing the recipient's "to" key.
 - Return ONLY JSON: {"messages":[{"to":"<recipient key>","lang":"es|en","body":"..."}]}.`;
 
-/** One short, factual English note per update for the patient's Backboard thread. */
+/**
+ * One short, factual English memory per update for the patient's Backboard
+ * assistant. Times are absolute ("around day 26"); the ask path rewrites them
+ * relative to the demo clock, so no day number ever reaches the family.
+ */
 function noteFact(event: CommsEvent, f: Facts, day: number): string {
   const name = String(f.patientFirstName);
   const drug = String(f.drug);
   switch (event) {
     case "enrolled":
-      return `${name} is enrolled in ${f.programLabel} for ${drug}. The medicine ships in about ${f.shipsInDays} days (around demo day ${day + Number(f.shipsInDays)}).`;
+      return `${name} is enrolled in ${f.programLabel} for ${drug}. The first supply should arrive around day ${day + Number(f.shipsInDays)}.`;
     case "pa_submitted":
       return `The care team sent the prior authorization for ${drug} to ${f.planName}. ${name}'s ${f.programLabel} supply continues while the plan decides.`;
     case "pa_approved":
@@ -189,9 +193,9 @@ function noteFact(event: CommsEvent, f: Facts, day: number): string {
     case "pa_denied_new_plan":
       return `${name}'s insurance plan did not approve ${drug}, so ${name}'s access plan changed: the doctor approved ${f.newPathLabel} at $${f.amountUsd}. An authorized family member can review and pay.`;
     case "payment_done_shipped":
-      return `The $${f.amountUsd} payment for ${name}'s ${drug} is complete. The medicine has shipped and should arrive in about ${f.daysUntil} days (around demo day ${day + Number(f.daysUntil)}).`;
+      return `The $${f.amountUsd} payment for ${name}'s ${drug} is complete and the medicine has shipped. It should arrive around day ${day + Number(f.daysUntil)}.`;
     case "delivered":
-      return `${name}'s ${drug} was delivered on demo day ${day}.`;
+      return `${name}'s ${drug} was delivered on day ${day}.`;
   }
 }
 
@@ -343,7 +347,7 @@ export async function notify(
       if (error) throw new Error(`messages insert failed: ${error.message}`);
     }
 
-    // Care-circle memory. Bounded (5 s) and never throws: Backboard can't break the chain.
+    // Backboard memory for care-circle Q&A. Bounded (5 s) and never throws: it can't break the chain.
     await appendNote(ctx.patientId, day, noteFact(event, facts, day));
 
     const langs = [...new Set(recipients.map((r) => r.lang.toUpperCase()))].join(", ");

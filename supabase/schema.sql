@@ -238,6 +238,10 @@ alter table messages add column if not exists recipient_member_id uuid reference
 -- reset_demo() so every demo run starts a fresh thread with no stale facts.
 alter table patients add column if not exists backboard_thread_id text;
 
+-- Backboard memory: one assistant per patient (memories are assistant-scoped,
+-- so this keeps each patient's facts separate). Cleared by reset_demo().
+alter table patients add column if not exists backboard_assistant_id text;
+
 -- ============================================================================
 -- Indexes
 -- ============================================================================
@@ -344,7 +348,8 @@ begin
   delete from prescriptions    where is_seed = false;
   delete from care_circle      where is_seed = false;
   delete from patients         where is_seed = false;
-  update patients set backboard_thread_id = null where backboard_thread_id is not null;
+  update patients set backboard_thread_id = null, backboard_assistant_id = null
+    where backboard_thread_id is not null or backboard_assistant_id is not null;
   update demo_state set day = 0 where id = 1;
 end;
 $$;

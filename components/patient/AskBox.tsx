@@ -31,7 +31,7 @@ const T = {
   },
 } as const;
 
-/** Care-circle Q&A for a family member (Ana's view), answered from the patient's Backboard thread. */
+/** Care-circle Q&A for a family member (Ana's view), answered from the patient's Backboard memories. */
 export function AskBox({
   patientId,
   memberId,
