@@ -383,3 +383,17 @@
       0 0 60px -8px color-mix(in srgb, var(--glow) 45%, transparent);
   }
 }
+
+/* Breathing teal halo behind the spinning pill (static with reduced motion). */
+@keyframes pill-halo {
+  0%, 100% { opacity: 0.45; transform: scale(0.92); }
+  50% { opacity: 0.8; transform: scale(1.06); }
+}
+.pill-halo {
+  background: radial-gradient(closest-side, color-mix(in srgb, var(--glow) 70%, transparent), color-mix(in srgb, var(--glow) 18%, transparent) 60%, transparent);
+  filter: blur(18px);
+  animation: pill-halo 4s ease-in-out infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .pill-halo { animation: none; opacity: 0.6; }
+}

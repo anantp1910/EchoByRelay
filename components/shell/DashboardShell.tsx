@@ -117,8 +117,8 @@ function Rail({
       </nav>
 
       {/* The empty stretch of the rail: an interactive, always-spinning pill. */}
-      <div className="flex min-h-[11rem] flex-1 items-center justify-center">
-        <SpinningPill className="size-56" />
+      <div className="flex min-h-[15rem] flex-1 items-center justify-center">
+        <SpinningPill glow big className="aspect-square w-full max-w-[17rem]" />
       </div>
 
       <div className="flex flex-col gap-5">
