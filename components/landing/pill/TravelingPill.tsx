@@ -6,11 +6,10 @@ import { useEffect, useState } from "react";
 
 import { usePillMode } from "./mode";
 
-// The 3D pill travels with the page after the hero (the hero has its own SVG
-// object with the layered wordmark): it fades in by the people section, then
-// moves into margins and gaps, and beside the story panel where it splits,
-// reassembles and glows. Transform + opacity only on the container; the WebGL
-// buffer stays one fixed size (never upscaled). Desktop only.
+// The 3D pill travels with the page: big over the hero wordmark, then into
+// margins and gaps, and beside the story panel where it splits, reassembles
+// and glows. Transform + opacity only on the container; the WebGL buffer
+// stays one fixed size (never upscaled). Phones: hero only, then it rests.
 
 const PillCanvas = dynamic(() => import("./PillCanvas"), { ssr: false, loading: () => <StaticPill /> });
 
@@ -37,7 +36,7 @@ export function TravelingPill() {
   const mode = usePillMode();
   const { scrollY } = useScroll();
   const [m, setM] = useState<{ stops: number[]; vw: number; vh: number } | null>(null);
-  const [visible, setVisible] = useState(false);
+  const [visible, setVisible] = useState(true);
 
   useEffect(() => {
     const measure = () => {
@@ -61,20 +60,19 @@ export function TravelingPill() {
   }, []);
 
   const desktop = (m?.vw ?? 1440) >= 1024;
-  const box = BOX;
+  const box = desktop ? BOX : Math.min(BOX, (m?.vw ?? 390) * 0.9);
   const input = m?.stops ?? ORDER.map((_, i) => i);
-  const poses = ORDER.map((k) => DESKTOP[k]);
+  const poses = ORDER.map((k) => (desktop ? DESKTOP[k] : { ...DESKTOP.top, x: 0.5, y: 0.47, s: 1 }));
   const vw = m?.vw ?? 1440;
   const vh = m?.vh ?? 900;
   const x = useTransform(scrollY, input, poses.map((p) => p.x * vw - (box * p.s) / 2));
   const y = useTransform(scrollY, input, poses.map((p) => p.y * vh - (box * p.s) / 2));
   const scale = useTransform(scrollY, input, poses.map((p) => p.s));
-  // Hidden over the hero; fades in on the way to the people section.
-  const peopleAt = input[1];
-  const opacity = useTransform(scrollY, [0, peopleAt * 0.7, peopleAt], [0, 0, 1]);
+  // Phones: the pill belongs to the hero; it fades out as the page moves on.
+  const opacity = useTransform(scrollY, desktop ? [0, 1] : [0, vh * 0.55], desktop ? [1, 1] : [1, 0]);
   useMotionValueEvent(opacity, "change", (v) => setVisible((cur) => (cur === v > 0.02 ? cur : v > 0.02)));
 
-  if (mode !== "3d" || !m || !desktop) return null;
+  if (mode !== "3d" || !m) return null;
   return (
     <motion.div
       aria-hidden
