@@ -100,7 +100,7 @@ export function CheckInCard({
       data-day={due.day}
     >
       <h2 id="checkin-title" className="flex items-center gap-2 text-xl font-bold sm:text-2xl">
-        <ClipboardCheck aria-hidden className="size-6 text-primary" /> {t.title(due.day)}
+        <ClipboardCheck aria-hidden className="size-6 text-[var(--echo-accent)]" /> {t.title(due.day)}
       </h2>
       {proxy && <p className="mt-1 text-base text-muted-foreground">{t.forPatient(patientFirstName)}</p>}
 
@@ -215,7 +215,7 @@ function Choice({
       className={cn(
         "flex min-h-14 w-full items-center gap-3 rounded-xl border-2 px-4 py-3 text-left text-lg font-medium transition-colors duration-150",
         "focus-visible:ring-4 focus-visible:ring-ring/40 focus-visible:outline-none",
-        pressed ? "border-primary bg-accent text-accent-foreground" : "border-line bg-card hover:bg-muted"
+        pressed ? "border-[var(--echo-accent)] bg-accent text-accent-foreground" : "border-line bg-card hover:bg-muted"
       )}
     >
       <span
@@ -223,7 +223,7 @@ function Choice({
         className={cn(
           "grid size-6 shrink-0 place-items-center border-2",
           radio ? "rounded-full" : "rounded-md",
-          pressed ? "border-primary bg-primary text-primary-foreground" : "border-muted-foreground/50"
+          pressed ? "border-[var(--echo-accent)] bg-[var(--echo-accent)] text-white dark:text-[#0e131a]" : "border-muted-foreground/50"
         )}
       >
         {pressed && <Check className="size-4" />}
@@ -263,7 +263,7 @@ export function CheckInHistory({
   return (
     <section className="rounded-2xl border border-line bg-card p-5 shadow-sm sm:p-6" aria-labelledby="checkin-history">
       <h2 id="checkin-history" className="flex items-center gap-2 text-xl font-bold sm:text-2xl">
-        <ClipboardCheck aria-hidden className="size-6 text-primary" /> {t.history}
+        <ClipboardCheck aria-hidden className="size-6 text-[var(--echo-accent)]" /> {t.history}
       </h2>
       {checkIns.length === 0 ? (
         <p className="mt-3 text-muted-foreground">{t.noHistory}</p>

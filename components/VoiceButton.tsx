@@ -6,6 +6,7 @@ import { useCallback, useEffect, useId, useRef, useState, useSyncExternalStore }
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { BRAND } from "@/components/brand";
 import { transcribe } from "@/lib/api/client";
 import { TRANSCRIBE_MAX_MS } from "@/lib/api/contracts";
 import { DEMO_PHRASE } from "@/lib/demo/constants";
@@ -384,7 +385,7 @@ export function VoiceButton({
               </span>
             ) : (
               <span className="text-sm text-muted-foreground">
-                {transcribing ? "Transcribing with ElevenLabs…" : processing ? "Sending to Relay…" : idleHint}
+                {transcribing ? "Transcribing with ElevenLabs…" : processing ? `Sending to ${BRAND.name}…` : idleHint}
               </span>
             )}
           </div>

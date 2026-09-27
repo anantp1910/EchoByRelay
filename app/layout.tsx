@@ -1,25 +1,13 @@
 import type { Metadata } from "next";
-import {
-  Atkinson_Hyperlegible,
-  Bricolage_Grotesque,
-  JetBrains_Mono,
-} from "next/font/google";
+import { JetBrains_Mono } from "next/font/google";
 
 import { Providers } from "@/components/Providers";
+import { BRAND } from "@/components/brand";
+import { echoFonts } from "./fonts";
 import "./globals.css";
 
-const display = Bricolage_Grotesque({
-  variable: "--font-display",
-  subsets: ["latin"],
-});
-
-// Atkinson Hyperlegible is not a variable font, so weights are explicit.
-const body = Atkinson_Hyperlegible({
-  variable: "--font-body",
-  subsets: ["latin"],
-  weight: ["400", "700"],
-});
-
+// Echo type everywhere (Figtree Light + Inter + Anton, see ./fonts); JetBrains
+// Mono stays for code/tabular labels.
 const code = JetBrains_Mono({
   variable: "--font-code",
   subsets: ["latin"],
@@ -27,11 +15,11 @@ const code = JetBrains_Mono({
 
 export const metadata: Metadata = {
   title: {
-    default: "Relay — every prescription, all the way to the patient",
-    template: "%s · Relay",
+    default: `${BRAND.full} — ${BRAND.tagline}`,
+    template: `%s · ${BRAND.full}`,
   },
   description:
-    "Relay carries a prescription from the doctor's decision to the patient's hands.",
+    BRAND.description,
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
@@ -39,7 +27,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
     <html
       lang="en"
       suppressHydrationWarning
-      className={`${display.variable} ${body.variable} ${code.variable} h-full antialiased`}
+      className={`echo ${echoFonts} ${code.variable} h-full antialiased`}
     >
       <body className="flex min-h-full flex-col">
         <Providers>{children}</Providers>

@@ -5,5 +5,9 @@ import { DoctorConsole } from "@/components/doctor/DoctorConsole";
 export const metadata: Metadata = { title: "Doctor" };
 
 export default function DoctorPage() {
-  return <DoctorConsole />;
+  return (
+    <div className="echo-portal flex flex-1 flex-col">
+      <DoctorConsole />
+    </div>
+  );
 }

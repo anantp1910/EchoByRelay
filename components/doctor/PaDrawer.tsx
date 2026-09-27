@@ -215,7 +215,7 @@ export function PaDrawer({ open, onOpenChange, rxId, event, onApprove }: PaDrawe
                           href={c.url}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="mt-0.5 inline-flex min-h-11 items-center gap-1 rounded text-sm font-medium text-primary underline-offset-2 hover:underline"
+                          className="mt-0.5 inline-flex min-h-11 items-center gap-1 rounded text-sm font-medium text-[var(--echo-accent)] underline-offset-2 hover:underline"
                         >
                           View on DailyMed <ExternalLink aria-hidden className="size-3.5" />
                           <span className="sr-only">(opens in a new tab)</span>
@@ -293,7 +293,7 @@ function Inline({ text, onCite, citeCount }: { text: string; onCite: (n: number)
                 type="button"
                 onClick={() => onCite(n)}
                 aria-label={`Citation ${n}`}
-                className="relative mx-0.5 rounded px-0.5 align-super font-mono text-xs font-bold text-primary before:absolute before:top-1/2 before:left-1/2 before:size-11 before:-translate-1/2 before:content-[''] hover:underline focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:outline-none"
+                className="relative mx-0.5 rounded px-0.5 align-super font-mono text-xs font-bold text-[var(--echo-accent)] before:absolute before:top-1/2 before:left-1/2 before:size-11 before:-translate-1/2 before:content-[''] hover:underline focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:outline-none"
               >
                 [{n}]
               </button>

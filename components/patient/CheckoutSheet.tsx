@@ -5,6 +5,7 @@ import { Check, CircleX, CreditCard, Fingerprint, LoaderCircle, Repeat, Store, T
 import { useId, useState } from "react";
 
 import { SimulatedBadge } from "@/components/SimulatedBadge";
+import { BRAND } from "@/components/brand";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { HAS_SUPABASE } from "@/components/useLiveEvents";
@@ -21,7 +22,7 @@ const T = {
     merchantName: "Medvantx Pharmacy",
     total: "Total today",
     cap: "Spending cap",
-    capHint: "Relay can never charge more than this.",
+    capHint: `${BRAND.name} can never charge more than this.`,
     capTooLow: "The cap is below the price, so this payment would be declined.",
     recurring: "Refill automatically each month",
     recurringHint: "Uses the same cap. Turn off anytime.",
@@ -54,7 +55,7 @@ const T = {
     merchantName: "Farmacia Medvantx",
     total: "Total de hoy",
     cap: "Límite de gasto",
-    capHint: "Relay nunca puede cobrar más de esto.",
+    capHint: `${BRAND.name} nunca puede cobrar más de esto.`,
     capTooLow: "El límite es menor que el precio, así que el pago sería rechazado.",
     recurring: "Resurtir automáticamente cada mes",
     recurringHint: "Usa el mismo límite. Puede apagarlo cuando quiera.",
@@ -162,7 +163,7 @@ export function CheckoutSheet({ open, onOpenChange, orderId, amountUsd, payerMem
       >
         <SheetHeader className="border-b border-line px-5 pt-5 pr-12">
           <SheetTitle className="flex items-center gap-2 text-xl font-bold">
-            <CreditCard aria-hidden className="size-5 text-primary" /> {t.title}
+            <CreditCard aria-hidden className="size-5 text-[var(--echo-accent)]" /> {t.title}
           </SheetTitle>
           <SheetDescription className="text-base">{t.desc}</SheetDescription>
         </SheetHeader>
@@ -228,7 +229,7 @@ export function CheckoutSheet({ open, onOpenChange, orderId, amountUsd, payerMem
                 data-testid="checkout-recurring"
                 className="flex min-h-14 items-center gap-3 rounded-xl border border-line p-3 text-left focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:outline-none"
               >
-                <Repeat aria-hidden className="size-5 shrink-0 text-primary" />
+                <Repeat aria-hidden className="size-5 shrink-0 text-[var(--echo-accent)]" />
                 <span className="flex-1">
                   <span className="block font-medium">{t.recurring}</span>
                   <span className="block text-base text-muted-foreground">{t.recurringHint}</span>

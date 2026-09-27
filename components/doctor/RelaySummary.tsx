@@ -4,8 +4,10 @@ import { AnimatePresence, motion } from "framer-motion";
 import { Check, Clock, LoaderCircle, Sparkles } from "lucide-react";
 
 import type { CheckInView } from "@/components/checkins/types";
+import { BRAND } from "@/components/brand";
 import { isRouterProgram, PROGRAM } from "@/components/labels";
 import { SimulatedBadge } from "@/components/SimulatedBadge";
+import { cn } from "@/lib/utils";
 import type { AgentEvent } from "@/lib/db/types";
 
 // Staff minutes a human would otherwise spend, per item. Change them here and
@@ -113,7 +115,9 @@ export function RelaySummary({
   checkIns,
   patientFirstName,
   recipients,
+  className,
 }: {
+  className?: string;
   events: AgentEvent[];
   checkIns: CheckInView[];
   patientFirstName: string;
@@ -129,22 +133,22 @@ export function RelaySummary({
   return (
     <section
       aria-labelledby="relay-summary-title"
-      className="mb-5 rounded-xl border border-primary/30 bg-accent/60 p-4"
+      className={cn("mb-5 rounded-xl border border-primary/30 bg-accent/60 p-4", className)}
       data-testid="relay-summary"
     >
       <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-2">
         <div>
           <h3 id="relay-summary-title" className="flex items-center gap-2 text-base font-bold">
-            <Sparkles aria-hidden className="size-4 text-primary" /> Relay did this for {patientFirstName}
+            <Sparkles aria-hidden className="size-4 text-[var(--echo-accent)]" /> {BRAND.name} did this for {patientFirstName}
           </h3>
           <p className="text-sm text-muted-foreground">
-            {intake.status === "done" ? "From 1 sentence, Relay:" : "Listening to the prescription…"}
+            {intake.status === "done" ? `From 1 sentence, ${BRAND.name}:` : "Listening to the prescription…"}
           </p>
         </div>
         {minutes > 0 && (
           <p className="text-right" data-testid="time-saved" data-minutes={minutes}>
-            <span className="flex items-center justify-end gap-1.5 font-heading text-2xl font-bold tabular">
-              <Clock aria-hidden className="size-5 text-primary" />~{minutes} min
+            <span className="flex items-center justify-end gap-1.5 font-heading text-2xl font-light tabular">
+              <Clock aria-hidden className="size-5 text-[var(--echo-accent)]" />~{minutes} min
             </span>
             <span className="text-xs text-muted-foreground">Est. staff time saved</span>
           </p>

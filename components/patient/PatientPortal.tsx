@@ -3,10 +3,12 @@
 import { AnimatePresence, motion } from "framer-motion";
 import { Check, CreditCard, HeartHandshake, Inbox, Pill, RotateCcw, SearchX, UserPlus } from "lucide-react";
 import Link from "next/link";
-import { useState } from "react";
+import { useCallback, useRef, useState } from "react";
 
-import { FixtureBadge, RelayMark } from "@/components/AppHeader";
+import { DashboardShell, DashCard } from "@/components/shell/DashboardShell";
+import { BRAND } from "@/components/brand";
 import { CheckInCard, CheckInHistory, CheckInNudge } from "@/components/checkins/CheckInCard";
+import { CheckInPanel, CheckInTab } from "@/components/checkins/CheckInPanel";
 import { useCheckIns } from "@/components/checkins/useCheckIns";
 import { PROGRAM, isRouterProgram } from "@/components/labels";
 import { LocalTime } from "@/components/LocalTime";
@@ -64,7 +66,7 @@ const T = {
     notFoundHint: "Check the link from your care team.",
     loadError: "We couldn't load your updates.",
     retry: "Try again",
-    home: "Go to Relay home",
+    home: `Go to ${BRAND.name} home`,
     program: {
       bridge: "Free bridge supply",
       quick_start: "Free Quick Start supply",
@@ -113,7 +115,7 @@ const T = {
     notFoundHint: "Revise el enlace de su equipo médico.",
     loadError: "No pudimos cargar sus novedades.",
     retry: "Intentar de nuevo",
-    home: "Ir a Relay",
+    home: `Ir a ${BRAND.name}`,
     program: {
       bridge: "Suministro puente gratis",
       quick_start: "Suministro de inicio rápido gratis",
@@ -136,11 +138,6 @@ const T = {
 } satisfies Record<Language, unknown>;
 
 type Copy = (typeof T)[Language];
-
-const RELATION: Record<Language, Record<string, string>> = {
-  en: {},
-  es: { daughter: "hija", son: "hijo", wife: "esposa", husband: "esposo", mother: "madre", father: "padre", sister: "hermana", brother: "hermano" },
-};
 
 // Rx-field translations for the demo drug (not clinical claims).
 const RX_ES: Record<string, string> = {
@@ -193,6 +190,13 @@ export function PatientPortal({ patientId }: { patientId: string }) {
   const t = T[lang];
   const [payOpen, setPayOpen] = useState(false);
   const checkins = useCheckIns(patientId);
+  const [checkinOpen, setCheckinOpen] = useState(false);
+  const checkinTab = useRef<HTMLElement | null>(null);
+  const openCheckin = useCallback((tab: HTMLButtonElement) => {
+    checkinTab.current = tab;
+    setCheckinOpen(true);
+  }, []);
+  const closeCheckin = useCallback(() => setCheckinOpen(false), []);
 
   const first = (name: string) => name.split(" ")[0];
   const nameFor = (memberId: string | null) =>
@@ -216,42 +220,37 @@ export function PatientPortal({ patientId }: { patientId: string }) {
       )
     : [];
 
-  return (
-    <div className="min-h-full flex-1 bg-background text-lg">
-      <header className="sticky top-[env(safe-area-inset-top,0px)] z-20 border-b border-line bg-card/95 backdrop-blur">
-        <div className="mx-auto flex h-16 max-w-xl items-center gap-2 px-4">
-          <RelayMark />
-          <FixtureBadge />
-          <LangToggle lang={lang} onChange={(l) => setLangChoice({ viewer, lang: l })} />
-        </div>
-      </header>
+  const title = !patient
+    ? t.home
+    : viewer === "member" && member
+      ? t.helloFor(first(member.name), first(patient.name))
+      : t.hello(first(patient.name));
 
-      {data.state === "loading" ? (
-        <main className="mx-auto flex max-w-xl flex-col gap-5 px-4 py-6" aria-busy="true" aria-label="Loading">
-          <Skeleton className="h-10 w-2/3" />
-          <Skeleton className="h-48 w-full rounded-2xl" />
-          <Skeleton className="h-64 w-full rounded-2xl" />
-        </main>
-      ) : data.state === "error" ? (
-        <main className="mx-auto flex max-w-xl flex-col items-center gap-3 px-4 py-20 text-center" role="alert">
-          <h1 className="text-2xl font-bold">{t.loadError}</h1>
-          {data.error && <p className="text-muted-foreground">{data.error}</p>}
-          <Button size="lg" variant="outline" className="h-12 text-base" onClick={data.retry}>
-            <RotateCcw aria-hidden /> {t.retry}
-          </Button>
-        </main>
-      ) : data.state === "not_found" || !patient ? (
-        <main className="mx-auto flex max-w-xl flex-col items-center gap-3 px-4 py-20 text-center">
-          <SearchX aria-hidden className="size-10 text-muted-foreground" />
-          <h1 className="text-2xl font-bold">{t.notFound}</h1>
-          <p className="text-muted-foreground">{t.notFoundHint}</p>
-          <Link href="/" className="mt-2 inline-flex min-h-11 items-center rounded font-medium text-primary underline underline-offset-4">
-            {t.home}
-          </Link>
-        </main>
-      ) : (
-        <main lang={lang} className="mx-auto flex max-w-xl flex-col gap-5 px-4 py-6 pb-16">
-          {member && (
+  return (
+    <DashboardShell
+      portal="patient"
+      lang={lang}
+      title={title}
+      subtitle={patient && viewer === "patient" ? t.sub : undefined}
+      railItems={
+        patient && rx ? (
+          <CheckInTab onOpen={openCheckin} due={Boolean(checkins.due)} overdue={Boolean(checkins.due?.overdue)} lang={lang} />
+        ) : undefined
+      }
+      mobileBar={
+        patient && rx ? (
+          <CheckInTab
+            compact
+            onOpen={openCheckin}
+            due={Boolean(checkins.due)}
+            overdue={Boolean(checkins.due?.overdue)}
+            lang={lang}
+          />
+        ) : undefined
+      }
+      actions={
+        <>
+          {patient && member && (
             <ViewerSwitch
               label={t.viewingAs}
               viewer={viewer}
@@ -259,38 +258,53 @@ export function PatientPortal({ patientId }: { patientId: string }) {
               names={{ patient: first(patient.name), member: first(member.name) }}
             />
           )}
+          <LangToggle lang={lang} onChange={(l) => setLangChoice({ viewer, lang: l })} />
+        </>
+      }
+    >
+      <div className="text-lg">
+      {data.state === "loading" ? (
+        <div className="grid grid-cols-[minmax(0,1fr)] gap-4 lg:grid-cols-2 xl:grid-cols-3" aria-busy="true" aria-label="Loading">
+          <Skeleton className="h-56 w-full rounded-2xl" />
+          <Skeleton className="h-56 w-full rounded-2xl" />
+          <Skeleton className="h-56 w-full rounded-2xl" />
+        </div>
+      ) : data.state === "error" ? (
+        <div className="flex max-w-xl flex-col items-start gap-3 py-10" role="alert">
+          <p className="text-2xl">{t.loadError}</p>
+          {data.error && <p className="text-muted-foreground">{data.error}</p>}
+          <Button size="lg" variant="outline" className="h-12 text-base" onClick={data.retry}>
+            <RotateCcw aria-hidden /> {t.retry}
+          </Button>
+        </div>
+      ) : data.state === "not_found" || !patient ? (
+        <div className="flex max-w-xl flex-col items-start gap-3 py-10">
+          <SearchX aria-hidden className="size-10 text-muted-foreground" />
+          <p className="text-2xl">{t.notFound}</p>
+          <p className="text-muted-foreground">{t.notFoundHint}</p>
+          <Link href="/" className="mt-2 inline-flex min-h-11 items-center rounded font-medium text-[var(--echo-accent)] underline underline-offset-4">
+            {t.home}
+          </Link>
+        </div>
+      ) : (
+        <div lang={lang} className="grid grid-cols-[minmax(0,1fr)] items-start gap-4 lg:grid-cols-2 xl:grid-cols-3">
+          {/* Feature card: where the medicine is, in one line. */}
+          <DashCard feature id="status" className="lg:col-span-2 xl:col-span-1">
+            <div className="flex min-h-[13rem] flex-col">
+              <div className="flex items-start justify-between gap-3">
+                {rx ? <StatusPill status={rx.status} label={t.status[rx.status]} size="lg" /> : <span />}
+                {data.day !== null && <span className="font-mono text-base text-muted-foreground">{t.day(data.day)}</span>}
+              </div>
+              <p className="mt-auto font-[family-name:var(--font-figtree)] text-[clamp(1.9rem,3vw,2.6rem)] leading-tight font-light">
+                {rx ? t.steps[Math.min(step, t.steps.length - 1)] : t.noRx}
+              </p>
+              <p className="mt-1 text-base text-muted-foreground">
+                {DEMO_DRUG.name} {DEMO_DRUG.dose}
+              </p>
+            </div>
+          </DashCard>
 
-          <section>
-            <h1 className="text-3xl font-bold sm:text-4xl">
-              {viewer === "member" && member
-                ? t.helloFor(first(member.name), first(patient.name))
-                : t.hello(first(patient.name))}
-            </h1>
-            {viewer === "patient" && <p className="mt-1 text-muted-foreground">{t.sub}</p>}
-            {rx && (
-              <StatusPill status={rx.status} label={t.status[rx.status]} size="lg" className="mt-3" />
-            )}
-          </section>
-
-          {rx && checkins.due && (
-            <>
-              {viewer === "member" && (
-                <CheckInNudge due={checkins.due} lang={lang} patientFirstName={first(patient.name)} />
-              )}
-              <CheckInCard
-                key={`${checkins.due.day}-${viewer}`}
-                due={checkins.due}
-                lang={lang}
-                patientId={patient.id}
-                patientFirstName={first(patient.name)}
-                prescriptionId={rx.id}
-                proxyMemberId={viewer === "member" && member ? member.id : null}
-                onSubmit={checkins.submit}
-              />
-            </>
-          )}
-
-          <Card>
+          <Card id="medicine">
             <CardTitle icon={Pill}>{viewer === "member" ? t.medicineFor(first(patient.name)) : t.medicine}</CardTitle>
             {rx ? (
               <dl className="mt-4 grid gap-4">
@@ -319,7 +333,7 @@ export function PatientPortal({ patientId }: { patientId: string }) {
             )}
           </Card>
 
-          <Card>
+          <Card id="progress">
             <div className="flex items-baseline justify-between gap-2">
               <CardTitle>{t.progress}</CardTitle>
               {data.day !== null && <span className="font-mono text-base text-muted-foreground">{t.day(data.day)}</span>}
@@ -328,10 +342,8 @@ export function PatientPortal({ patientId }: { patientId: string }) {
             {data.mandate?.recurring && <p className="mt-3 text-base text-ok-strong">{t.refillOn}</p>}
           </Card>
 
-          {rx && <CheckInHistory checkIns={checkins.checkIns} lang={lang} nameFor={nameFor} />}
-
           {viewer === "member" && member?.can_pay && (
-            <Card>
+            <Card id="payment">
               <div className="flex items-center justify-between gap-2">
                 <CardTitle icon={CreditCard}>{t.pay}</CardTitle>
                 <SimulatedBadge label="Simulated Visa" />
@@ -358,17 +370,47 @@ export function PatientPortal({ patientId }: { patientId: string }) {
             </Card>
           )}
 
-          <Card>
+          <Card id="circle" className="lg:col-span-2 xl:col-span-3">
             <CardTitle icon={HeartHandshake}>{t.circle}</CardTitle>
             <Feed messages={feed} circle={circle} lang={lang} t={t} />
           </Card>
 
           {viewer === "member" && member && (
-            <Card>
+            <Card id="ask" className="lg:col-span-2 xl:col-span-3">
               <AskBox patientId={patient.id} memberId={member.id} patientFirstName={first(patient.name)} lang={lang} />
             </Card>
           )}
-        </main>
+        </div>
+      )}
+      </div>
+
+      {patient && rx && (
+        <CheckInPanel open={checkinOpen} onClose={closeCheckin} lang={lang} returnFocus={checkinTab}>
+          <div className="flex flex-col gap-5">
+            {checkins.due ? (
+              <>
+                {viewer === "member" && (
+                  <CheckInNudge due={checkins.due} lang={lang} patientFirstName={first(patient.name)} />
+                )}
+                <CheckInCard
+                  key={`${checkins.due.day}-${viewer}`}
+                  due={checkins.due}
+                  lang={lang}
+                  patientId={patient.id}
+                  patientFirstName={first(patient.name)}
+                  prescriptionId={rx.id}
+                  proxyMemberId={viewer === "member" && member ? member.id : null}
+                  onSubmit={checkins.submit}
+                />
+              </>
+            ) : (
+              <p className="rounded-2xl border border-line bg-card p-5 text-muted-foreground" data-testid="checkin-none">
+                {lang === "es" ? "No hay registro pendiente hoy." : "No check-in is due today."}
+              </p>
+            )}
+            <CheckInHistory checkIns={checkins.checkIns} lang={lang} nameFor={nameFor} />
+          </div>
+        </CheckInPanel>
       )}
 
       {(payable || payOpen) && order && member && (
@@ -382,7 +424,7 @@ export function PatientPortal({ patientId }: { patientId: string }) {
           lang={lang}
         />
       )}
-    </div>
+    </DashboardShell>
   );
 }
 
@@ -421,6 +463,19 @@ function ViewerSwitch({
   );
 }
 
+/**
+ * Display wording for engine-written messages: say "Maria", never "your
+ * mother Maria"; name the caregiver role instead of the family relation.
+ * (The source text lives in lib/agents/patientComms.ts, owned by the engine.)
+ */
+function plainNames(body: string): string {
+  const out = body
+    .replace(/\b(your|tu|su)\s+(mother|mom|madre)\s+/gi, "")
+    .replace(/\b(mother|mom|madre)\b/gi, "Maria")
+    .replace(/\b(daughter|son|hija|hijo)\b/gi, (m) => (/^h/i.test(m) ? "cuidadora" : "caregiver"));
+  return out.charAt(0).toUpperCase() + out.slice(1);
+}
+
 type FeedItem =
   | { kind: "message"; id: string; at: string; message: Message }
   | { kind: "joined"; id: string; at: string; member: CareCircleMember };
@@ -450,41 +505,72 @@ function Feed({
     );
   }
 
+  const H = lang === "es"
+    ? { when: "Cuándo", from: "De", lang: "Idioma", update: "Novedad", circle: "Círculo" }
+    : { when: "When", from: "From", lang: "Language", update: "Update", circle: "Care circle" };
+  const cell = "px-3 py-3 align-top first:pl-0 last:pr-0 max-sm:p-0";
+  // Phones: each row stacks (time · from · language, then the update).
+  const row = "border-b border-line text-base last:border-0 max-sm:grid max-sm:grid-cols-[auto_auto_1fr] max-sm:items-center max-sm:gap-x-3 max-sm:gap-y-1 max-sm:py-3";
+  const updateCell = "max-sm:col-span-3";
+
   return (
-    <ul className="mt-4 flex flex-col gap-3" aria-live="polite" data-testid="care-feed">
-      <AnimatePresence initial={false}>
-        {items.map((item) =>
-          item.kind === "joined" ? (
-            <motion.li
-              key={item.id}
-              layout="position"
-              initial={{ opacity: 0, y: 6 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="flex items-center gap-2 px-1 text-base text-muted-foreground"
-            >
-              <UserPlus aria-hidden className="size-4 shrink-0" />
-              {t.joined(item.member.name.split(" ")[0], item.member.relation ? (RELATION[lang][item.member.relation] ?? item.member.relation) : null)}
-            </motion.li>
-          ) : (
-            <motion.li
-              key={item.id}
-              layout="position"
-              initial={{ opacity: 0, y: 6 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="rounded-2xl rounded-tl-sm bg-accent px-4 py-3 text-accent-foreground"
-              data-testid="care-message"
-            >
-              <p lang={item.message.lang}>{item.message.body}</p>
-              <p className="mt-1 flex items-center gap-2 text-xs text-muted-foreground">
-                <span>Relay</span>
-                <span className="rounded border border-line px-1 font-mono uppercase">{item.message.lang}</span>
-                <LocalTime iso={item.message.created_at} />
-              </p>
-            </motion.li>
-          )
-        )}
-      </AnimatePresence>
-    </ul>
+    <div className="mt-4 sm:overflow-x-auto">
+      <table className="w-full border-collapse text-left max-sm:block sm:min-w-[34rem]" aria-live="polite" data-testid="care-feed">
+        <thead className="max-sm:sr-only">
+          <tr className="border-b border-line text-sm text-muted-foreground">
+            <th scope="col" className={cn(cell, "w-32 font-normal")}>{H.when}</th>
+            <th scope="col" className={cn(cell, "w-28 font-normal")}>{H.from}</th>
+            <th scope="col" className={cn(cell, "w-24 font-normal")}>{H.lang}</th>
+            <th scope="col" className={cn(cell, "font-normal")}>{H.update}</th>
+          </tr>
+        </thead>
+        <tbody className="max-sm:block">
+          <AnimatePresence initial={false}>
+            {items.map((item) =>
+              item.kind === "joined" ? (
+                <motion.tr
+                  key={item.id}
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  className={cn(row, "text-muted-foreground")}
+                >
+                  <td className={cell}>
+                    <LocalTime iso={item.at} className="text-sm" />
+                  </td>
+                  <td className={cell}>{H.circle}</td>
+                  <td className={cell}>–</td>
+                  <td className={cn(cell, updateCell)}>
+                    <span className="inline-flex items-center gap-2">
+                      <UserPlus aria-hidden className="size-4 shrink-0" />
+                      {t.joined(item.member.name.split(" ")[0], lang === "es" ? "cuidadora" : "caregiver")}
+                    </span>
+                  </td>
+                </motion.tr>
+              ) : (
+                <motion.tr
+                  key={item.id}
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  className={row}
+                  data-testid="care-message"
+                >
+                  <td className={cell}>
+                    <LocalTime iso={item.message.created_at} className="text-sm" />
+                  </td>
+                  <td className={cell}>{BRAND.name}</td>
+                  <td className={cell}>
+                    <span className="rounded border border-line px-1.5 font-mono text-xs uppercase">{item.message.lang}</span>
+                  </td>
+                  <td className={cn(cell, updateCell, "leading-relaxed")} lang={item.message.lang}>
+                    {plainNames(item.message.body)}
+                  </td>
+                </motion.tr>
+              )
+            )}
+          </AnimatePresence>
+        </tbody>
+      </table>
+    </div>
   );
 }
 
@@ -511,14 +597,18 @@ function LangToggle({ lang, onChange }: { lang: Language; onChange: (l: Language
   );
 }
 
-function Card({ children }: { children: React.ReactNode }) {
-  return <section className="rounded-2xl border border-line bg-card p-5 shadow-sm sm:p-6">{children}</section>;
+function Card({ id, className, children }: { id?: string; className?: string; children: React.ReactNode }) {
+  return (
+    <section id={id} className={cn("glow-hover min-w-0 scroll-mt-20 rounded-2xl border border-line bg-card p-5 sm:p-6", className)}>
+      {children}
+    </section>
+  );
 }
 
 function CardTitle({ children, icon: Icon }: { children: React.ReactNode; icon?: typeof Pill }) {
   return (
     <h2 className="flex items-center gap-2 text-xl font-bold sm:text-2xl">
-      {Icon && <Icon aria-hidden className="size-6 text-primary" />}
+      {Icon && <Icon aria-hidden className="size-6 text-[var(--echo-accent)]" />}
       {children}
     </h2>
   );
@@ -554,7 +644,7 @@ function ProgressTracker({ steps, current, nowLabel }: { steps: string[]; curren
               className={cn(
                 "relative z-10 grid size-8 shrink-0 place-items-center rounded-full border-2 font-mono text-sm font-bold transition-colors duration-200",
                 done && "border-ok bg-ok text-white dark:text-[#062326]",
-                active && "border-primary bg-card text-primary",
+                active && "border-primary bg-card text-[var(--echo-accent)]",
                 !done && !active && "border-line bg-card text-muted-foreground"
               )}
             >
