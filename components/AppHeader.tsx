@@ -30,8 +30,8 @@ export function RelayMark({ className }: { className?: string }) {
         className
       )}
     >
-      {/* eslint-disable-next-line @next/next/no-img-element -- tiny local SVG mark */}
-      <img src="/echo-pill.svg" alt="" aria-hidden className="size-7" draggable={false} />
+      {/* eslint-disable-next-line @next/next/no-img-element -- local logo mark */}
+      <img src="/echo-logo.png" alt="" aria-hidden className="size-8 object-contain" draggable={false} />
       <span className="font-wordmark text-2xl leading-none tracking-wide">{BRAND.name.toUpperCase()}</span>{" "}
       <span className="text-xs text-muted-foreground">by {BRAND.maker}</span>
     </Link>

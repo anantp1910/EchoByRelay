@@ -48,8 +48,8 @@ function Wordmark() {
       href="/"
       className="inline-flex min-h-11 items-center gap-2 rounded-md focus-visible:ring-2 focus-visible:ring-ring/60 focus-visible:outline-none"
     >
-      {/* eslint-disable-next-line @next/next/no-img-element -- tiny local SVG mark */}
-      <img src="/echo-pill.svg" alt="" aria-hidden className="size-8" draggable={false} />
+      {/* eslint-disable-next-line @next/next/no-img-element -- local logo mark */}
+      <img src="/echo-logo.png" alt="" aria-hidden className="size-9 object-contain" draggable={false} />
       <span className="font-wordmark text-2xl leading-none tracking-wide">{BRAND.name.toUpperCase()}</span>
       <span className="sr-only"> by {BRAND.maker}, home</span>
     </Link>
@@ -126,8 +126,8 @@ function Rail({
         <div className="flex flex-col gap-3">
           <div className="flex items-center gap-3">
             <span className="grid size-11 place-items-center rounded-lg bg-muted">
-              {/* eslint-disable-next-line @next/next/no-img-element -- tiny local SVG mark */}
-              <img src="/echo-pill.svg" alt="" aria-hidden className="size-8" draggable={false} />
+              {/* eslint-disable-next-line @next/next/no-img-element -- local logo mark */}
+              <img src="/echo-logo.png" alt="" aria-hidden className="size-9 object-contain" draggable={false} />
             </span>
             <span className="leading-tight">
               <span className="block text-[0.95rem]">{BRAND.full}</span>
