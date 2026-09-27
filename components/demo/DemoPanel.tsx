@@ -11,7 +11,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import Link from "next/link";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 
 import { FixtureBadge, RelayMark, ThemeToggle } from "@/components/AppHeader";
@@ -108,15 +108,23 @@ function useDemoDay() {
 
 type PaState = { submitted: boolean; denied: boolean };
 
-/** Maria's newest demo prescription: PA submitted yet? denied? (live via Realtime). */
-function usePaState(): PaState {
+/**
+ * Maria's newest demo prescription: PA submitted yet? denied? Live via Realtime,
+ * plus refresh() after every panel action: Realtime events that fire before the
+ * subscription connects (e.g. a reset right after page load) would be missed.
+ * Only the latest read is applied, so a slow older read can't overwrite it.
+ */
+function usePaState(): { pa: PaState; refresh: () => void } {
   const [state, setState] = useState<PaState>({ submitted: false, denied: false });
+  const loadRef = useRef<() => void>(() => {});
 
   useEffect(() => {
     if (!supabase) return;
     const client = supabase;
     let cancelled = false;
+    let seq = 0;
     async function load() {
+      const mine = ++seq;
       const { data: rx } = await client
         .from("prescriptions")
         .select("id")
@@ -126,19 +134,18 @@ function usePaState(): PaState {
         .limit(1)
         .maybeSingle();
       const rxId = (rx as { id: string } | null)?.id;
-      if (!rxId) {
-        if (!cancelled) setState({ submitted: false, denied: false });
-        return;
-      }
-      const { data: pas } = await client.from("pa_requests").select("status").eq("rx_id", rxId);
-      const statuses = ((pas ?? []) as { status: string }[]).map((p) => p.status);
-      if (!cancelled) {
-        setState({
+      let next: PaState = { submitted: false, denied: false };
+      if (rxId) {
+        const { data: pas } = await client.from("pa_requests").select("status").eq("rx_id", rxId);
+        const statuses = ((pas ?? []) as { status: string }[]).map((p) => p.status);
+        next = {
           submitted: statuses.some((st) => st === "submitted" || st === "approved" || st === "denied"),
           denied: statuses.includes("denied"),
-        });
+        };
       }
+      if (!cancelled && mine === seq) setState(next);
     }
+    loadRef.current = () => void load();
     const channel = client
       .channel("demo_state:panel-pa")
       .on("postgres_changes", { event: "*", schema: "public", table: "pa_requests" }, () => void load())
@@ -147,17 +154,18 @@ function usePaState(): PaState {
     void load();
     return () => {
       cancelled = true;
+      loadRef.current = () => {};
       void client.removeChannel(channel);
     };
   }, []);
 
-  return state;
+  return { pa: state, refresh: useCallback(() => loadRef.current(), []) };
 }
 
 /** Hidden control panel used during judging. Not linked from any nav. */
 export function DemoPanel() {
   const { day, setDay, error } = useDemoDay();
-  const pa = usePaState();
+  const { pa, refresh: refreshPa } = usePaState();
   const next = nextScene(day, pa);
   // Key of the control that is running (e.g. "jump:24", "scene:3"), for its spinner.
   const [running, setRunning] = useState<string | null>(null);
@@ -181,6 +189,7 @@ export function DemoPanel() {
     try {
       const res = await demo(action === "jump" || action === "advance" ? { action, day: dayArg } : { action });
       setDay(res.day); // Realtime confirms; this keeps the counter instant.
+      refreshPa(); // don't rely on Realtime alone for the story state
       toast.success(`Day ${res.day}`, { description: label });
     } catch (e) {
       toast.error(`${label} failed`, { description: e instanceof Error ? e.message : "Please try again." });
