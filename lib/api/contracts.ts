@@ -232,3 +232,16 @@ export const PharmaMetricsResSchema = z.object({
     .describe("Estimate: unique initial PA drafts x 20 min (AMA survey average), in hours"),
 });
 export type PharmaMetricsRes = z.infer<typeof PharmaMetricsResSchema>;
+
+// ---------------------------------------------------------------------------
+// POST /api/transcribe   multipart/form-data: audio (file), durationMs (optional)
+//   -> { text }   ElevenLabs speech-to-text, English. Errors use the shared
+//   shape: validation_error (missing/too large/too long), internal (upstream).
+// ---------------------------------------------------------------------------
+export const TRANSCRIBE_MAX_BYTES = 2 * 1024 * 1024;
+export const TRANSCRIBE_MAX_MS = 60_000;
+
+export const TranscribeResSchema = z.object({
+  text: z.string(),
+});
+export type TranscribeRes = z.infer<typeof TranscribeResSchema>;

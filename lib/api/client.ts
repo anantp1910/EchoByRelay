@@ -27,6 +27,8 @@ import {
   PaResSchema,
   PharmaMetricsRes,
   PharmaMetricsResSchema,
+  TranscribeRes,
+  TranscribeResSchema,
 } from "./contracts";
 
 /** Error thrown when a route returns the shared error shape (or an unparseable failure). */
@@ -49,7 +51,10 @@ async function apiFetch<T>(
 ): Promise<T> {
   const res = await fetch(path, {
     ...init,
-    headers: { "content-type": "application/json", ...(init.headers ?? {}) },
+    // Multipart bodies need the browser's own boundary header.
+    headers: init.body instanceof FormData
+      ? { ...(init.headers ?? {}) }
+      : { "content-type": "application/json", ...(init.headers ?? {}) },
   });
 
   const text = await res.text();
@@ -111,4 +116,13 @@ export function demo(body: DemoReq): Promise<DemoRes> {
 
 export function pharmaMetrics(): Promise<PharmaMetricsRes> {
   return apiFetch("/api/pharma/metrics", { method: "GET" }, PharmaMetricsResSchema);
+}
+
+/** Speech-to-text via ElevenLabs (server-side). Throws ApiError on failure. */
+export function transcribe(audio: Blob, durationMs?: number): Promise<TranscribeRes> {
+  const form = new FormData();
+  const ext = audio.type.includes("ogg") ? "ogg" : audio.type.includes("mp4") ? "m4a" : audio.type.includes("wav") ? "wav" : "webm";
+  form.append("audio", audio, `dictation.${ext}`);
+  if (durationMs !== undefined) form.append("durationMs", String(Math.round(durationMs)));
+  return apiFetch("/api/transcribe", { method: "POST", body: form }, TranscribeResSchema);
 }
