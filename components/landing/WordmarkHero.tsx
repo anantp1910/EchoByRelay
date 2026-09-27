@@ -53,7 +53,7 @@ function Words({ comp, outline, className }: { comp: Comp; outline?: boolean; cl
 }
 
 const linkCls =
-  "inline-flex min-h-11 items-center rounded-md text-[0.95rem] text-foreground/80 transition-colors duration-200 hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/60 focus-visible:outline-none";
+  "glow-text inline-flex min-h-11 items-center rounded-md text-[0.95rem] text-foreground/80 focus-visible:ring-2 focus-visible:ring-ring/60 focus-visible:outline-none";
 
 export function WordmarkHero() {
   const ref = useRef<HTMLElement>(null);

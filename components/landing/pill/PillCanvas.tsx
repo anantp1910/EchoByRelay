@@ -43,7 +43,19 @@ function Half({ top, material }: { top: boolean; material: THREE.MeshPhysicalMat
   );
 }
 
-function Pill({ pointer }: { pointer: React.RefObject<{ x: number; y: number }> }) {
+/**
+ * The pill model. "story": slow spin, splits/glows with the landing story.
+ * "spin": spins non-stop (faster while `boost` is set), ignores the story.
+ */
+export function Pill({
+  pointer,
+  mode = "story",
+  boost,
+}: {
+  pointer: React.RefObject<{ x: number; y: number }>;
+  mode?: "story" | "spin";
+  boost?: React.RefObject<number>;
+}) {
   const root = useRef<THREE.Group>(null);
   const spin = useRef<THREE.Group>(null);
   const top = useRef<THREE.Group>(null);
@@ -59,7 +71,7 @@ function Pill({ pointer }: { pointer: React.RefObject<{ x: number; y: number }> 
 
   useFrame((state, dt) => {
     const t = state.clock.elapsedTime;
-    const scene = story.scene;
+    const scene = mode === "story" ? story.scene : -1;
     const st = s.current;
     st.split = damp(st.split, scene === SCENE.wall ? 1 : 0, 3.5, dt);
     st.amber = damp(st.amber, scene === SCENE.cliff ? 1 : 0, 3, dt);
@@ -70,7 +82,7 @@ function Pill({ pointer }: { pointer: React.RefObject<{ x: number; y: number }> 
       root.current.rotation.x = damp(root.current.rotation.x, 0.25 - p.y * 0.3, 4, dt); // tilt to mouse
       root.current.rotation.z = damp(root.current.rotation.z, -0.62 - p.x * 0.3, 4, dt);
     }
-    if (spin.current) spin.current.rotation.y += dt * 0.35; // slow spin
+    if (spin.current) spin.current.rotation.y += dt * (mode === "spin" ? 1.1 * (boost?.current ?? 1) : 0.35);
     if (top.current && bottom.current) {
       top.current.position.y = st.split * 0.42;
       bottom.current.position.y = -st.split * 0.42;
@@ -96,9 +108,23 @@ function Pill({ pointer }: { pointer: React.RefObject<{ x: number; y: number }> 
   );
 }
 
-export default function PillCanvas({ active }: { active: boolean }) {
-  // Pointer from the window (the canvas ignores pointer events so it never
-  // blocks clicks); normalized to -1..1.
+/** Studio light for the pill: in-code light formers, no HDR fetch. */
+export function PillLights() {
+  return (
+    <>
+      <ambientLight intensity={0.35} />
+      <directionalLight position={[3, 4, 5]} intensity={1.6} />
+      <Environment resolution={128} frames={1}>
+        <Lightformer form="rect" intensity={3} position={[0, 4, 3]} scale={[8, 2, 1]} />
+        <Lightformer form="rect" intensity={1.4} position={[-4, 0, 2]} rotation-y={Math.PI / 2} scale={[6, 3, 1]} />
+        <Lightformer form="ring" color="#bff3ee" intensity={1.2} position={[3, -1, 3]} scale={2} />
+      </Environment>
+    </>
+  );
+}
+
+/** Window pointer, normalized to -1..1 (canvases may ignore pointer events). */
+export function useWindowPointer() {
   const pointer = useRef({ x: 0, y: 0 });
   useEffect(() => {
     const onMove = (e: PointerEvent) => {
@@ -107,6 +133,12 @@ export default function PillCanvas({ active }: { active: boolean }) {
     window.addEventListener("pointermove", onMove, { passive: true });
     return () => window.removeEventListener("pointermove", onMove);
   }, []);
+  return pointer;
+}
+
+export default function PillCanvas({ active }: { active: boolean }) {
+  // The canvas ignores pointer events so it never blocks clicks.
+  const pointer = useWindowPointer();
 
   return (
     <Canvas
@@ -117,13 +149,7 @@ export default function PillCanvas({ active }: { active: boolean }) {
       style={{ pointerEvents: "none" }}
       aria-hidden
     >
-      <ambientLight intensity={0.35} />
-      <directionalLight position={[3, 4, 5]} intensity={1.6} />
-      <Environment resolution={128} frames={1}>
-        <Lightformer form="rect" intensity={3} position={[0, 4, 3]} scale={[8, 2, 1]} />
-        <Lightformer form="rect" intensity={1.4} position={[-4, 0, 2]} rotation-y={Math.PI / 2} scale={[6, 3, 1]} />
-        <Lightformer form="ring" color="#bff3ee" intensity={1.2} position={[3, -1, 3]} scale={2} />
-      </Environment>
+      <PillLights />
       <Pill pointer={pointer} />
     </Canvas>
   );

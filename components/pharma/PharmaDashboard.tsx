@@ -189,7 +189,7 @@ function Kpis({
           id={i === 0 ? "metrics" : undefined}
           data-testid={`kpi-${k.id}`}
           className={cn(
-            "relative flex scroll-mt-20 flex-col overflow-hidden rounded-2xl border p-5",
+            "glow-hover relative flex scroll-mt-20 flex-col overflow-hidden rounded-2xl border p-5",
             i === 0
               ? "dark min-h-[16rem] border-transparent bg-[#0b0f14] text-foreground md:col-span-2 xl:col-span-1 xl:row-span-2 xl:min-h-full"
               : "border-line bg-card"
@@ -251,7 +251,7 @@ function ChartCard({
   children: React.ReactNode;
 }) {
   return (
-    <section id={id} className={cn("min-w-0 scroll-mt-20 rounded-2xl border border-line bg-card p-5", className)} aria-label={title}>
+    <section id={id} className={cn("glow-hover min-w-0 scroll-mt-20 rounded-2xl border border-line bg-card p-5", className)} aria-label={title}>
       <div className="flex flex-wrap items-start justify-between gap-2">
         <div>
           <h2 className="text-lg font-bold">{title}</h2>
@@ -343,7 +343,7 @@ function AuditTrail({ rows, state, onRetry }: { rows: AuditLog[]; state: Load; o
     "h-11 rounded-lg border border-line bg-background px-2 text-sm focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:outline-none sm:h-9";
 
   return (
-    <section aria-labelledby="audit-title" className="min-w-0 rounded-2xl border border-line bg-card p-5">
+    <section aria-labelledby="audit-title" className="glow-hover min-w-0 rounded-2xl border border-line bg-card p-5">
       <div className="mb-3 flex items-baseline justify-between gap-2">
         <h2 id="audit-title" className="text-lg font-bold">
           Audit trail

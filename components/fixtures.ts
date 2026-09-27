@@ -257,7 +257,7 @@ export const FIXTURE_MESSAGES: Message[] = [
     recipient_member_id: ANA_ID,
     sender: "relay",
     lang: "en",
-    body: `Your mother Maria is starting a free 30-day ${DEMO_DRUG.name} supply from Medvantx Bridge while her insurance reviews the prescription.`,
+    body: `Maria is starting a free 30-day ${DEMO_DRUG.name} supply from Medvantx Bridge while her insurance reviews the prescription.`,
     is_seed: false,
     created_at: at(51),
   },

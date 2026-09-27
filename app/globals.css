@@ -330,3 +330,56 @@
   font-weight: 400;
   letter-spacing: -0.01em;
 }
+
+/* ---------------------------------------------------------------------------
+ * Pill glow: the same teal as the Echo pill, used for hover/selected glows.
+ * ------------------------------------------------------------------------- */
+.glow-hover {
+  transition:
+    border-color 200ms ease,
+    box-shadow 250ms ease;
+}
+.glow-hover:hover,
+.glow-hover:focus-within,
+.glow-on {
+  border-color: color-mix(in srgb, var(--glow) 70%, transparent) !important;
+  box-shadow:
+    0 0 0 1px color-mix(in srgb, var(--glow) 35%, transparent),
+    0 0 28px -4px color-mix(in srgb, var(--glow) 50%, transparent);
+}
+.glow-text {
+  transition:
+    color 200ms ease,
+    text-shadow 250ms ease,
+    box-shadow 250ms ease;
+}
+.glow-text:hover,
+.glow-text:focus-visible {
+  color: var(--echo-accent);
+  text-shadow:
+    0 0 10px color-mix(in srgb, var(--glow) 75%, transparent),
+    0 0 26px color-mix(in srgb, var(--glow) 45%, transparent);
+}
+@keyframes glow-breathe {
+  0%, 100% {
+    box-shadow:
+      0 0 0 1px color-mix(in srgb, var(--glow) 30%, transparent),
+      0 0 50px -8px color-mix(in srgb, var(--glow) 40%, transparent);
+  }
+  50% {
+    box-shadow:
+      0 0 0 1px color-mix(in srgb, var(--glow) 45%, transparent),
+      0 0 80px -6px color-mix(in srgb, var(--glow) 55%, transparent);
+  }
+}
+.glow-ring {
+  animation: glow-breathe 4.5s ease-in-out infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .glow-ring {
+    animation: none;
+    box-shadow:
+      0 0 0 1px color-mix(in srgb, var(--glow) 35%, transparent),
+      0 0 60px -8px color-mix(in srgb, var(--glow) 45%, transparent);
+  }
+}

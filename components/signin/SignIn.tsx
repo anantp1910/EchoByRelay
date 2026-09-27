@@ -8,6 +8,7 @@ import { useId, useState } from "react";
 
 import { ThemeToggle } from "@/components/AppHeader";
 import { BRAND } from "@/components/brand";
+import { SpinningPill } from "@/components/landing/pill/SpinningPill";
 import { setDemoRole, type DemoRole } from "@/components/role";
 import { DEMO_PRESCRIBER, MARIA_ID } from "@/lib/demo/constants";
 import { cn } from "@/lib/utils";
@@ -69,13 +70,14 @@ export function SignIn() {
         <ThemeToggle className="size-11 rounded-full" />
       </header>
 
-      <main className="grid flex-1 place-items-center px-5 pb-16">
+      <main className="relative grid flex-1 place-items-center px-5 pb-16">
+        <SpinningPill className="absolute top-1/2 left-[5%] hidden size-[24rem] -translate-y-1/2 xl:block 2xl:left-[10%] 2xl:size-[28rem]" />
         <motion.form
           onSubmit={onContinue}
           initial={{ opacity: 0, y: 16 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.45, ease: [0.22, 1, 0.36, 1] }}
-          className="w-full max-w-md rounded-2xl border border-line bg-card p-7 shadow-[0_30px_80px_-40px_rgba(40,48,64,0.45)] sm:p-9"
+          className="glow-ring relative z-10 w-full max-w-md rounded-2xl border border-line bg-card p-7 sm:p-9"
           aria-labelledby="signin-title"
         >
           <p className="font-wordmark text-3xl tracking-wide">
@@ -99,8 +101,8 @@ export function SignIn() {
                     onClick={() => setRole(r)}
                     data-testid={`signin-${r}`}
                     className={cn(
-                      "flex min-h-16 items-center gap-3 rounded-xl border px-4 py-3 text-left transition-[border-color,background-color,transform] duration-200 hover:-translate-y-px focus-visible:ring-2 focus-visible:ring-ring/60 focus-visible:outline-none",
-                      on ? "border-[var(--echo-accent)] bg-[var(--accent)]" : "border-line hover:bg-muted"
+                      "glow-hover flex min-h-16 items-center gap-3 rounded-xl border px-4 py-3 text-left transition-[border-color,background-color,transform,box-shadow] duration-200 hover:-translate-y-px focus-visible:ring-2 focus-visible:ring-ring/60 focus-visible:outline-none",
+                      on ? "glow-on border-[var(--echo-accent)] bg-[var(--accent)]" : "border-line hover:bg-muted"
                     )}
                   >
                     <span className={cn("grid size-10 shrink-0 place-items-center rounded-full border", on ? "border-[var(--echo-accent)] text-[var(--echo-accent)]" : "border-line text-muted-foreground")}>

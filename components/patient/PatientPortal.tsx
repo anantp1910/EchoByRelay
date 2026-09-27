@@ -459,6 +459,19 @@ function ViewerSwitch({
   );
 }
 
+/**
+ * Display wording for engine-written messages: say "Maria", never "your
+ * mother Maria"; name the caregiver role instead of the family relation.
+ * (The source text lives in lib/agents/patientComms.ts, owned by the engine.)
+ */
+function plainNames(body: string): string {
+  const out = body
+    .replace(/\b(your|tu|su)\s+(mother|mom|madre)\s+/gi, "")
+    .replace(/\b(mother|mom|madre)\b/gi, "Maria")
+    .replace(/\b(daughter|son|hija|hijo)\b/gi, (m) => (/^h/i.test(m) ? "cuidadora" : "caregiver"));
+  return out.charAt(0).toUpperCase() + out.slice(1);
+}
+
 type FeedItem =
   | { kind: "message"; id: string; at: string; message: Message }
   | { kind: "joined"; id: string; at: string; member: CareCircleMember };
@@ -512,7 +525,7 @@ function Feed({
               className="rounded-2xl rounded-tl-sm bg-accent px-4 py-3 text-accent-foreground"
               data-testid="care-message"
             >
-              <p lang={item.message.lang}>{item.message.body}</p>
+              <p lang={item.message.lang}>{plainNames(item.message.body)}</p>
               <p className="mt-1 flex items-center gap-2 text-xs text-muted-foreground">
                 <span>{BRAND.name}</span>
                 <span className="rounded border border-line px-1 font-mono uppercase">{item.message.lang}</span>
@@ -551,7 +564,7 @@ function LangToggle({ lang, onChange }: { lang: Language; onChange: (l: Language
 
 function Card({ id, children }: { id?: string; children: React.ReactNode }) {
   return (
-    <section id={id} className="min-w-0 scroll-mt-20 rounded-2xl border border-line bg-card p-5 sm:p-6">
+    <section id={id} className="glow-hover min-w-0 scroll-mt-20 rounded-2xl border border-line bg-card p-5 sm:p-6">
       {children}
     </section>
   );

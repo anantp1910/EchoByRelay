@@ -6,6 +6,7 @@ import { useState } from "react";
 
 import { FixtureBadge, ThemeToggle } from "@/components/AppHeader";
 import { BRAND } from "@/components/brand";
+import { SpinningPill } from "@/components/landing/pill/SpinningPill";
 import { useDemoRole, type DemoRole } from "@/components/role";
 import { Sheet, SheetContent, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { cn } from "@/lib/utils";
@@ -115,7 +116,12 @@ function Rail({
         )}
       </nav>
 
-      <div className="mt-auto flex flex-col gap-5">
+      {/* The empty stretch of the rail: an interactive, always-spinning pill. */}
+      <div className="flex min-h-[11rem] flex-1 items-center justify-center">
+        <SpinningPill className="size-56" />
+      </div>
+
+      <div className="flex flex-col gap-5">
         {/* "Sponsored"-style slot: our honesty note. */}
         <div className="flex flex-col gap-3">
           <div className="flex items-center gap-3">
@@ -246,7 +252,7 @@ export function DashCard({
       id={id}
       aria-label={typeof title === "string" ? title : undefined}
       className={cn(
-        "relative min-w-0 scroll-mt-20 overflow-hidden rounded-2xl border",
+        "glow-hover relative min-w-0 scroll-mt-20 overflow-hidden rounded-2xl border",
         feature
           ? "dark border-transparent bg-[#0b0f14] text-foreground shadow-[0_30px_80px_-40px_rgba(14,19,26,0.8)]"
           : "border-line bg-card",

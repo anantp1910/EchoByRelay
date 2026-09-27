@@ -349,7 +349,7 @@ function PatientHeader({
   }
   const { patient } = row;
   return (
-    <section className="flex flex-wrap items-center gap-x-4 gap-y-2 rounded-2xl border border-line bg-card px-5 py-4">
+    <section className="glow-hover flex flex-wrap items-center gap-x-4 gap-y-2 rounded-2xl border border-line bg-card px-5 py-4">
       <div className="min-w-0">
         <h2 className="truncate text-2xl font-bold">{patient.name}</h2>
         <p className="mt-0.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-muted-foreground">
