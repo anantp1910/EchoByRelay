@@ -6,7 +6,7 @@ import { useState } from "react";
 
 import { FixtureBadge, ThemeToggle } from "@/components/AppHeader";
 import { BRAND } from "@/components/brand";
-import { SpinningPill } from "@/components/landing/pill/SpinningPill";
+import { GlassPill } from "./GlassPill";
 import { useDemoRole, type DemoRole } from "@/components/role";
 import { Sheet, SheetContent, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { cn } from "@/lib/utils";
@@ -116,9 +116,9 @@ function Rail({
         )}
       </nav>
 
-      {/* The empty stretch of the rail: an interactive, always-spinning pill. */}
-      <div className="flex min-h-[15rem] flex-1 items-center justify-center">
-        <SpinningPill glow big className="aspect-square w-full max-w-[17rem]" />
+      {/* The empty stretch of the rail: the glass pill with its orbit. */}
+      <div className="flex min-h-[14rem] flex-1 items-center justify-center">
+        <GlassPill className="h-[24rem] max-h-full w-full max-w-[13rem]" />
       </div>
 
       <div className="flex flex-col gap-5">
