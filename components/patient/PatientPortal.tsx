@@ -371,7 +371,7 @@ export function PatientPortal({ patientId }: { patientId: string }) {
         </main>
       )}
 
-      {payable && order && member && (
+      {(payable || payOpen) && order && member && (
         <CheckoutSheet
           key={order.id}
           open={payOpen}
