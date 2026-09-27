@@ -10,6 +10,9 @@ import type { z } from "zod";
 import {
   ApiErrorSchema,
   ApproveReq,
+  AskReq,
+  AskRes,
+  AskResSchema,
   ApproveRes,
   ApproveResSchema,
   CheckoutReq,
@@ -125,4 +128,9 @@ export function transcribe(audio: Blob, durationMs?: number): Promise<Transcribe
   form.append("audio", audio, `dictation.${ext}`);
   if (durationMs !== undefined) form.append("durationMs", String(Math.round(durationMs)));
   return apiFetch("/api/transcribe", { method: "POST", body: form }, TranscribeResSchema);
+}
+
+/** Care-circle question about the patient, answered from their Backboard thread. */
+export function ask(body: AskReq): Promise<AskRes> {
+  return apiFetch("/api/ask", { method: "POST", body: JSON.stringify(body) }, AskResSchema);
 }

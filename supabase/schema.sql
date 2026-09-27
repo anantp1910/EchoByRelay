@@ -234,6 +234,10 @@ alter table care_circle drop constraint if exists care_circle_lang_check;
 alter table care_circle add constraint care_circle_lang_check check (lang in ('es', 'en'));
 alter table messages add column if not exists recipient_member_id uuid references care_circle(id) on delete set null;
 
+-- Group 4: the patient's Backboard thread (care-circle Q&A notes). Cleared by
+-- reset_demo() so every demo run starts a fresh thread with no stale facts.
+alter table patients add column if not exists backboard_thread_id text;
+
 -- ============================================================================
 -- Indexes
 -- ============================================================================
@@ -340,6 +344,7 @@ begin
   delete from prescriptions    where is_seed = false;
   delete from care_circle      where is_seed = false;
   delete from patients         where is_seed = false;
+  update patients set backboard_thread_id = null where backboard_thread_id is not null;
   update demo_state set day = 0 where id = 1;
 end;
 $$;

@@ -90,6 +90,8 @@ export interface Patient {
   income_band: IncomeBand | null;
   on_drug_before: boolean;
   conditions: string[];
+  /** Backboard thread holding this patient's care-circle notes (null until the first update). */
+  backboard_thread_id?: string | null;
   is_seed: boolean;
   created_at: string;
 }

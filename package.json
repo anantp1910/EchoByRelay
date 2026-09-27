@@ -21,6 +21,7 @@
     "test:engine": "node --conditions=react-server --import tsx scripts/engine-cases.ts",
     "test:gemini": "node --conditions=react-server --import tsx scripts/gemini-cases.ts",
     "test:transcribe": "node --conditions=react-server --import tsx scripts/transcribe-cases.ts",
+    "test:ask": "node --conditions=react-server --import tsx scripts/ask-cases.ts",
     "fetch:label": "tsx scripts/fetch-label.ts"
   },
   "dependencies": {

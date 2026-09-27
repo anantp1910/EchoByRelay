@@ -14,6 +14,7 @@ class Query {
   select() { this.selected = true; return this; }
   eq(key: string, value: unknown) { this.filters.push((r) => r[key] === value); return this; }
   neq(key: string, value: unknown) { this.filters.push((r) => r[key] !== value); return this; }
+  is(key: string, value: null) { this.filters.push((r) => (r[key] ?? null) === value); return this; }
   in(key: string, values: unknown[]) { this.filters.push((r) => values.includes(r[key])); return this; }
   contains(key: string, value: Row) {
     this.filters.push((r) => Object.entries(value).every(([k, v]) => (r[key] as Row)?.[k] === v)); return this;

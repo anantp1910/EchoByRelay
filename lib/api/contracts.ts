@@ -245,3 +245,25 @@ export const TranscribeResSchema = z.object({
   text: z.string(),
 });
 export type TranscribeRes = z.infer<typeof TranscribeResSchema>;
+
+// ---------------------------------------------------------------------------
+// POST /api/ask  { patientId, memberId, question } -> { answer, source, answeredBy }
+//   Care-circle Q&A from the patient's Backboard thread only. memberId null =
+//   the patient. source is always "backboard" (the facts come from the Backboard
+//   thread); answeredBy says who wrote the sentence: Backboard's own chat,
+//   grok/gemini from the thread notes, the dosing guardrail, or "unavailable"
+//   (friendly "care team will follow up" message, still HTTP 200).
+// ---------------------------------------------------------------------------
+export const AskReqSchema = z.object({
+  patientId: Uuid,
+  memberId: Uuid.nullable(),
+  question: z.string().trim().min(1).max(500),
+});
+export type AskReq = z.infer<typeof AskReqSchema>;
+
+export const AskResSchema = z.object({
+  answer: z.string(),
+  source: z.literal("backboard"),
+  answeredBy: z.enum(["backboard", "grok", "gemini", "guardrail", "unavailable"]),
+});
+export type AskRes = z.infer<typeof AskResSchema>;

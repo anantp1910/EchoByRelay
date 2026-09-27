@@ -28,6 +28,7 @@ import type {
 import { ANA_ID, DEMO_DRUG } from "@/lib/demo/constants";
 import { cn } from "@/lib/utils";
 
+import { AskBox } from "./AskBox";
 import { CheckoutSheet } from "./CheckoutSheet";
 import { usePatientData } from "./usePatientData";
 
@@ -361,6 +362,12 @@ export function PatientPortal({ patientId }: { patientId: string }) {
             <CardTitle icon={HeartHandshake}>{t.circle}</CardTitle>
             <Feed messages={feed} circle={circle} lang={lang} t={t} />
           </Card>
+
+          {viewer === "member" && member && (
+            <Card>
+              <AskBox patientId={patient.id} memberId={member.id} patientFirstName={first(patient.name)} lang={lang} />
+            </Card>
+          )}
         </main>
       )}
 
