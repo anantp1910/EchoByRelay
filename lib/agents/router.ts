@@ -4,7 +4,7 @@ import {
   type Patient,
   type PrescriptionStatus,
 } from "@/lib/db/types";
-import { textCall } from "@/lib/llm/grok";
+import { textCallWithProvider, type LlmProvider } from "@/lib/llm/grok";
 import { DEMO_DRUG } from "@/lib/demo/constants";
 import type { AgentContext } from "./context";
 
@@ -185,10 +185,12 @@ async function explain(
   firstName: string,
   drug: string,
   preferTemplate = false
-): Promise<string> {
-  if (preferTemplate) return `${reasons.join(". ")}. ${fallbackExplanation(program, firstName, drug)}`;
+): Promise<{ text: string; provider: LlmProvider }> {
+  if (preferTemplate) {
+    return { text: `${reasons.join(". ")}. ${fallbackExplanation(program, firstName, drug)}`, provider: "template" };
+  }
   try {
-    const text = await textCall(
+    const { data: text, provider } = await textCallWithProvider(
       [
         { role: "system", content: EXPLAIN_SYSTEM },
         {
@@ -199,10 +201,10 @@ async function explain(
       { model: "fast", fixtureKey: "router", timeoutMs: 10_000 }
     );
     return text.trim() && !/\byou(?:r|rs)?\b/i.test(text) && text.includes(firstName)
-      ? text.trim()
-      : fallbackExplanation(program, firstName, drug);
+      ? { text: text.trim(), provider }
+      : { text: fallbackExplanation(program, firstName, drug), provider: "template" };
   } catch {
-    return fallbackExplanation(program, firstName, drug);
+    return { text: fallbackExplanation(program, firstName, drug), provider: "template" };
   }
 }
 
@@ -225,10 +227,10 @@ export async function router(
   });
 
   try {
-    const detail = await explain(program, reasons, firstName, DEMO_DRUG.name, opts.paDenied);
+    const { text: detail, provider } = await explain(program, reasons, firstName, DEMO_DRUG.name, opts.paDenied);
 
     if (program === "escalate") {
-      await s.done(PROGRAM_TITLES.escalate, detail, { program, rxId });
+      await s.done(PROGRAM_TITLES.escalate, detail, { program, rxId, provider });
       // Alert for the doctor's inbox. Own try/catch so an alert failure does not
       // re-block the (successful) routing step. Dynamic import keeps route()
       // importable outside Next (test:router).
@@ -253,7 +255,7 @@ export async function router(
       : "fill_retail";
     await s.needsApproval(
       opts.paDenied && program === "cash_pay" ? "Switch to Medvantx Cash Pay" : PROGRAM_TITLES[program],
-      detail, { action, program, rxId, paDenied: Boolean(opts.paDenied) }
+      detail, { action, program, rxId, paDenied: Boolean(opts.paDenied), provider }
     );
     return { program, reasons };
   } catch (err) {

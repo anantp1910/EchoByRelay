@@ -97,16 +97,19 @@ async function main(): Promise<void> {
   }
   printTable(rows);
 
-  console.log("\n--- forcing fallback (XAI_API_KEY blanked in-process) ---");
-  delete process.env.XAI_API_KEY;
-  const forced = await runOne("demo phrase (no key)", CASES[0].transcript);
+  // Every AI path fails (Grok unreachable, Gemini disabled) -> deterministic parser.
+  // Removing all keys would enter fixture mode instead, which is not a fallback.
+  console.log("\n--- forcing fallback (Grok unreachable, Gemini disabled in-process) ---");
+  process.env.XAI_BASE_URL = "http://127.0.0.1:9";
+  delete process.env.GEMINI_API_KEY;
+  const forced = await runOne("demo phrase (AI down)", CASES[0].transcript);
   printTable([forced]);
 
   if (forced.source !== "fallback") {
-    console.error(`\nExpected fallback with no key, got "${forced.source}"`);
+    console.error(`\nExpected fallback with AI down, got "${forced.source}"`);
     process.exit(1);
   }
-  console.log("\nFallback confirmed with no key.");
+  console.log("\nFallback confirmed with AI down.");
 }
 
 main().catch((err) => {

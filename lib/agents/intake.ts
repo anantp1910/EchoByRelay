@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-import { jsonCall } from "@/lib/llm/grok";
+import { jsonCallWithProvider, type LlmProvider } from "@/lib/llm/grok";
 import { DEMO_DRUG } from "@/lib/demo/constants";
 import type { AgentContext } from "./context";
 
@@ -18,6 +18,8 @@ export interface IntakeResult {
   frequency: string;
   indication: string;
   source: "ai" | "fallback";
+  /** Who parsed it: grok, gemini (backup), fixture, or template (deterministic parser). */
+  provider: LlmProvider;
 }
 
 const IntakeSchema = z.object({
@@ -45,7 +47,7 @@ export function isUsableIntake(result: IntakeResult): boolean {
 /** Pure parse: Grok first, deterministic fallback on any failure. No DB writes. */
 export async function parseIntake(transcript: string): Promise<IntakeResult> {
   try {
-    const ai = await jsonCall(
+    const { data: ai, provider } = await jsonCallWithProvider(
       IntakeSchema,
       [
         { role: "system", content: SYSTEM_PROMPT },
@@ -53,9 +55,9 @@ export async function parseIntake(transcript: string): Promise<IntakeResult> {
       ],
       { model: "fast", fixtureKey: "intake", timeoutMs: 10_000 }
     );
-    return { ...ai, source: "ai" };
+    return { ...ai, source: "ai", provider };
   } catch {
-    return { ...fallbackParse(transcript), source: "fallback" };
+    return { ...fallbackParse(transcript), source: "fallback", provider: "template" };
   }
 }
 
@@ -67,7 +69,7 @@ const DOSE_RE = /(\d+(?:\.\d+)?)\s*(mg|mcg|g|ml|units?)\b/i;
  * Deterministic parser for "Starting/Continue <name> on <drug>, <n> mg <freq>".
  * Returns empty fields for input it can't understand (drug === "" => unusable).
  */
-function fallbackParse(transcript: string): Omit<IntakeResult, "source"> {
+function fallbackParse(transcript: string): Omit<IntakeResult, "source" | "provider"> {
   const text = transcript.replace(/\s+/g, " ").trim();
 
   const nameOn = text.match(/\b(?:starting|start|continue|begin|put)\s+(.+?)\s+on\s+(.+)$/i);
@@ -99,6 +101,13 @@ function fallbackParse(transcript: string): Omit<IntakeResult, "source"> {
   return { patientName, drug, dose, frequency, indication };
 }
 
+const PARSED_BY: Record<LlmProvider, string> = {
+  grok: "Parsed by Grok (fast model).",
+  gemini: "Parsed by Backup AI: Gemini.",
+  fixture: "Parsed from the offline demo fixture.",
+  template: "Parsed by deterministic fallback (no AI).",
+};
+
 /** Intake as one step: running -> done (or blocked if unusable). */
 export async function intake(transcript: string, ctx: AgentContext): Promise<IntakeResult> {
   const s = await ctx.step("intake", "Listening to the prescription…", {
@@ -125,8 +134,8 @@ export async function intake(transcript: string, ctx: AgentContext): Promise<Int
   const summary = [result.drug, result.dose, result.frequency].filter(Boolean).join(" ");
   await s.done(
     `Understood: ${summary}`,
-    result.source === "ai" ? "Parsed by Grok (fast model)." : "Parsed by deterministic fallback (no AI).",
-    undefined,
+    PARSED_BY[result.provider],
+    { provider: result.provider },
     { simulated: result.source === "fallback" }
   );
 

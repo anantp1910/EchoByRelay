@@ -54,7 +54,7 @@ export async function paDrafter(ctx: AgentContext, opts: { appeal?: boolean } = 
     const plan = getPlan(patient.planId);
 
     const label = await getJardianceLabel({ preferFixture: opts.appeal });
-    const { rationaleMd, citations, source } = await draftRationale(rx, patient, label, { preferTemplate: opts.appeal });
+    const { rationaleMd, citations, source, provider } = await draftRationale(rx, patient, label, { preferTemplate: opts.appeal });
     const date = dateAtDay((await now()).day).toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric", timeZone: "UTC" });
     const baseLetter = assembleLetter(rationaleMd, rx, patient, plan, date);
     const letterMd = opts.appeal
@@ -73,8 +73,8 @@ export async function paDrafter(ctx: AgentContext, opts: { appeal?: boolean } = 
     const n = citations.length;
     await step.needsApproval(
       opts.appeal ? "Appeal ready for review" : "PA ready for review",
-      `Drafted from the FDA label with ${n} citation${n === 1 ? "" : "s"}.`,
-      { action: "submit_pa", paRequestId: (paRow as { id: string }).id, rxId: ctx.rxId, source, draftMs, appeal: Boolean(opts.appeal) },
+      `Drafted from the FDA label with ${n} citation${n === 1 ? "" : "s"}.${provider === "gemini" ? " Backup AI: Gemini." : ""}`,
+      { action: "submit_pa", paRequestId: (paRow as { id: string }).id, rxId: ctx.rxId, source, provider, draftMs, appeal: Boolean(opts.appeal) },
       { simulated }
     );
   } catch (err) {

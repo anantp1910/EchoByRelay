@@ -5,8 +5,13 @@
 // - jsonCall validates with zod, retries once, then throws a typed LlmError so
 //   callers can fall back deterministically (the demo must never hang).
 // - Every call logs model + latency (console.info).
-// - DEMO_MODE=true or a missing XAI_API_KEY switches to read-only fixtures from
-//   lib/data/fixtures/ (Person C's folder — we only READ). No fixture -> LlmError.
+// - Backup AI: when Grok fails (timeout, API/rate-limit error, or invalid output
+//   after its retry), Gemini is called once with the same prompt and schema
+//   (lib/llm/gemini.ts). If that fails too, the LlmError reaches the caller,
+//   whose deterministic template/parser is the last step.
+// - DEMO_MODE=true, or no AI provider configured at all, switches to read-only
+//   fixtures from lib/data/fixtures/ (Person C's folder — we only READ). Fixtures
+//   are never used after a live failure: they are Maria-specific.
 //
 // NOTE: intentionally NOT `import "server-only"`. This module is imported by the
 // standalone test script (tsx) as well as server code; it holds no secrets at
@@ -19,7 +24,18 @@ import { join } from "node:path";
 import OpenAI from "openai";
 import type { z } from "zod";
 
+import { geminiConfigured, geminiJson, geminiText } from "./gemini";
+
 export type ModelTier = "fast" | "reasoning";
+
+/** Who produced a result. "template" = a caller's deterministic, non-AI path. */
+export type LlmProvider = "grok" | "gemini" | "fixture" | "template";
+export type LiveProvider = "grok" | "gemini";
+
+export interface LlmResult<T> {
+  data: T;
+  provider: Exclude<LlmProvider, "template">;
+}
 
 export type LlmErrorCode =
   | "no_key"
@@ -44,20 +60,26 @@ export interface JsonCallOpts {
   model: ModelTier;
   timeoutMs?: number;
   fixtureKey?: string;
+  /** Grok attempts before the backup (default 2). */
   attempts?: number;
+  /** Live providers to try, in order (default ["grok", "gemini"]). */
+  providers?: LiveProvider[];
 }
 
 export interface TextCallOpts {
   model: ModelTier;
   timeoutMs?: number;
   fixtureKey?: string;
+  providers?: LiveProvider[];
 }
+
+const DEFAULT_PROVIDERS: LiveProvider[] = ["grok", "gemini"];
 
 const DEFAULT_TIMEOUT_MS = 10_000;
 const FIXTURE_DIR = join(process.cwd(), "lib", "data", "fixtures");
 
 function inFixtureMode(): boolean {
-  return process.env.DEMO_MODE === "true" || !process.env.XAI_API_KEY;
+  return process.env.DEMO_MODE === "true" || (!process.env.XAI_API_KEY && !geminiConfigured());
 }
 
 function resolveModel(tier: ModelTier): string {
@@ -121,19 +143,42 @@ function loadJsonFixture<T>(fixtureKey: string | undefined, schema: z.ZodType<T>
 }
 
 /**
- * Structured JSON call: validates the model output against `schema`, retries
- * once on any failure, then throws LlmError. In fixture mode, returns a matching
- * read-only fixture (or throws LlmError("no_fixture")).
+ * Structured JSON call with provider: Grok (validated, retried once), then
+ * Gemini once, then LlmError. In fixture mode, returns a matching read-only
+ * fixture (or throws LlmError("no_fixture")).
  */
-export async function jsonCall<T>(
+export async function jsonCallWithProvider<T>(
   schema: z.ZodType<T>,
   messages: ChatMessage[],
   opts: JsonCallOpts
-): Promise<T> {
+): Promise<LlmResult<T>> {
   if (inFixtureMode()) {
-    return loadJsonFixture(opts.fixtureKey, schema);
+    return { data: loadJsonFixture(opts.fixtureKey, schema), provider: "fixture" };
   }
+  const providers = opts.providers ?? DEFAULT_PROVIDERS;
+  const timeoutMs = opts.timeoutMs ?? DEFAULT_TIMEOUT_MS;
+  let lastError: LlmError = new LlmError("api_error", "No AI provider available");
+  for (const provider of providers) {
+    try {
+      if (provider === "grok") return { data: await grokJson(schema, messages, opts), provider };
+      if (!geminiConfigured()) continue;
+      const data = await geminiJson(schema, messages, timeoutMs);
+      console.info(`[llm] provider=gemini answered after Grok failed (${lastError.code})`);
+      return { data, provider };
+    } catch (err) {
+      lastError = err instanceof LlmError ? err : new LlmError("api_error", String(err));
+    }
+  }
+  throw lastError;
+}
 
+/** jsonCall without provider info (same fallback chain). */
+export async function jsonCall<T>(schema: z.ZodType<T>, messages: ChatMessage[], opts: JsonCallOpts): Promise<T> {
+  return (await jsonCallWithProvider(schema, messages, opts)).data;
+}
+
+/** Grok only: validates with zod, retries (opts.attempts, default 2), then throws LlmError. */
+async function grokJson<T>(schema: z.ZodType<T>, messages: ChatMessage[], opts: JsonCallOpts): Promise<T> {
   const timeoutMs = opts.timeoutMs ?? DEFAULT_TIMEOUT_MS;
   const modelId = resolveModel(opts.model);
   const client = makeClient();
@@ -189,22 +234,44 @@ export async function jsonCall<T>(
 }
 
 /**
- * Free-text call. In fixture mode, reads lib/data/fixtures/{fixtureKey}.txt.
- * Does not retry (callers that need structure should use jsonCall).
+ * Free-text call with provider: Grok once, then Gemini once, then LlmError. In
+ * fixture mode, reads lib/data/fixtures/{fixtureKey}.txt.
  */
-export async function textCall(messages: ChatMessage[], opts: TextCallOpts): Promise<string> {
+export async function textCallWithProvider(messages: ChatMessage[], opts: TextCallOpts): Promise<LlmResult<string>> {
   if (inFixtureMode()) {
     if (!opts.fixtureKey) {
       throw new LlmError("no_fixture", "Fixture mode active but no fixtureKey was provided");
     }
     const file = join(FIXTURE_DIR, `${opts.fixtureKey}.txt`);
     try {
-      return readFileSync(file, "utf8");
+      return { data: readFileSync(file, "utf8"), provider: "fixture" };
     } catch {
       throw new LlmError("no_fixture", `No fixture at lib/data/fixtures/${opts.fixtureKey}.txt`);
     }
   }
+  const timeoutMs = opts.timeoutMs ?? DEFAULT_TIMEOUT_MS;
+  let lastError: LlmError = new LlmError("api_error", "No AI provider available");
+  for (const provider of opts.providers ?? DEFAULT_PROVIDERS) {
+    try {
+      if (provider === "grok") return { data: await grokText(messages, opts), provider };
+      if (!geminiConfigured()) continue;
+      const data = await geminiText(messages, timeoutMs);
+      console.info(`[llm] provider=gemini answered after Grok failed (${lastError.code})`);
+      return { data, provider };
+    } catch (err) {
+      lastError = err instanceof LlmError ? err : new LlmError("api_error", String(err));
+    }
+  }
+  throw lastError;
+}
 
+/** textCall without provider info (same fallback chain). */
+export async function textCall(messages: ChatMessage[], opts: TextCallOpts): Promise<string> {
+  return (await textCallWithProvider(messages, opts)).data;
+}
+
+/** Grok only, no retry. */
+async function grokText(messages: ChatMessage[], opts: TextCallOpts): Promise<string> {
   const timeoutMs = opts.timeoutMs ?? DEFAULT_TIMEOUT_MS;
   const modelId = resolveModel(opts.model);
   const client = makeClient();

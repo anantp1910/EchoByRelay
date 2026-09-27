@@ -4,7 +4,7 @@ import { z } from "zod";
 
 import { db } from "@/lib/db/server";
 import { now } from "@/lib/clock";
-import { jsonCall } from "@/lib/llm/grok";
+import { jsonCallWithProvider, type LlmProvider } from "@/lib/llm/grok";
 import { getPlan } from "@/lib/mocks/payer";
 import type { AgentContext } from "./context";
 import type { Language } from "@/lib/db/types";
@@ -210,20 +210,20 @@ async function draftMessages(
   facts: Facts,
   recipients: Recipient[],
   preferTemplate: boolean
-): Promise<{ byKey: Record<string, string>; source: "ai" | "template" }> {
+): Promise<{ byKey: Record<string, string>; source: "ai" | "template"; provider: LlmProvider }> {
   const templates = (): Record<string, string> => {
     const out: Record<string, string> = {};
     for (const r of recipients) out[r.promptKey] = templateMessage(event, r, facts);
     return out;
   };
 
-  if (preferTemplate) return { byKey: templates(), source: "template" };
+  if (preferTemplate) return { byKey: templates(), source: "template", provider: "template" };
 
   const allowed = allowedNumbers(facts);
   const drug = String(facts.drug);
 
   try {
-    const res = await jsonCall(
+    const { data: res, provider } = await jsonCallWithProvider(
       MessagesSchema,
       [
         { role: "system", content: SYSTEM_PROMPT },
@@ -247,13 +247,13 @@ async function draftMessages(
       }
       byKey[r.promptKey] = m.body.trim();
     }
-    if (ok) return { byKey, source: "ai" };
+    if (ok) return { byKey, source: "ai", provider };
     console.warn(`[patientComms] validation failed for ${event}; using templates`);
   } catch (err) {
     console.warn(`[patientComms] LLM failed for ${event}: ${err instanceof Error ? err.message : err}`);
   }
 
-  return { byKey: templates(), source: "template" };
+  return { byKey: templates(), source: "template", provider: "template" };
 }
 
 /**
@@ -307,7 +307,7 @@ export async function notify(
     const day = (await now()).day;
     const facts = buildFacts(event, rx, patientFirstName, getPlan(patient.plan_id ?? null).planName, day);
     if (opts.amountUsd !== undefined) facts.amountUsd = opts.amountUsd;
-    const { byKey, source } = await draftMessages(event, facts, recipients,
+    const { byKey, source, provider } = await draftMessages(event, facts, recipients,
       opts.preferTemplate || process.env.DEMO_MODE === "true" || event !== "enrolled");
 
     for (const r of recipients) {
@@ -323,7 +323,7 @@ export async function notify(
     }
 
     const langs = [...new Set(recipients.map((r) => r.lang.toUpperCase()))].join(", ");
-    await step.done(`Sent ${recipients.length} updates (${langs})`, null, undefined, {
+    await step.done(`Sent ${recipients.length} updates (${langs})`, provider === "gemini" ? "Backup AI: Gemini" : null, { provider }, {
       simulated: source === "template",
     });
   } catch (err) {

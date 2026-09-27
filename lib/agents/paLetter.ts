@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-import { jsonCall } from "@/lib/llm/grok";
+import { jsonCallWithProvider, type LlmProvider } from "@/lib/llm/grok";
 import { DEMO_PRESCRIBER } from "@/lib/demo/constants";
 import type { Citation } from "@/lib/api/contracts";
 import type { LabelData } from "@/lib/data/openfda";
@@ -316,35 +316,41 @@ export function assembleLetter(
   ].join("\n");
 }
 
-/** Draft the rationale: fast model, retry once, then deterministic template. */
+/**
+ * Draft the rationale: Grok twice, then Gemini once (backup AI), then the
+ * deterministic template. Every AI draft must pass citation validation.
+ */
 export async function draftRationale(
   rx: PrescriptionFacts,
   patient: PatientFacts,
   label: LabelData,
   opts: { preferTemplate?: boolean } = {}
-): Promise<{ rationaleMd: string; citations: Citation[]; source: "ai" | "template" }> {
+): Promise<{ rationaleMd: string; citations: Citation[]; source: "ai" | "template"; provider: LlmProvider }> {
   const messages = [
     { role: "system" as const, content: SYSTEM_PROMPT },
     { role: "user" as const, content: buildUserPrompt(rx, patient, label) },
   ];
 
-  for (let attempt = 1; !opts.preferTemplate && attempt <= 2; attempt++) {
+  const plan: ("grok" | "gemini")[] = ["grok", "grok", "gemini"];
+  for (let attempt = 1; !opts.preferTemplate && attempt <= plan.length; attempt++) {
     try {
-      const llm = await jsonCall(PaLetterLlmSchema, messages, {
+      const { data: llm, provider } = await jsonCallWithProvider(PaLetterLlmSchema, messages, {
         model: "fast",
         fixtureKey: "paLetter",
         timeoutMs: 12_000,
         attempts: 1,
+        providers: [plan[attempt - 1]],
       });
       const corrected = validateAndCorrect(llm.rationaleMd, llm.citations, label);
-      if (corrected) return { rationaleMd: llm.rationaleMd, citations: corrected, source: "ai" };
+      if (corrected) return { rationaleMd: llm.rationaleMd, citations: corrected, source: "ai", provider };
+      if (provider === "fixture") break; // same fixture every time; don't loop on it
     } catch (err) {
-      console.warn(`[paLetter] LLM attempt ${attempt} failed: ${err instanceof Error ? err.message : err}`);
+      console.warn(`[paLetter] ${plan[attempt - 1]} attempt ${attempt} failed: ${err instanceof Error ? err.message : err}`);
     }
   }
 
   const template = templateRationale(rx, label);
   const citations = validateAndCorrect(template.rationaleMd, template.citations, label);
   if (!citations) throw new Error("FDA template failed citation validation");
-  return { ...template, citations, source: "template" };
+  return { ...template, citations, source: "template", provider: "template" };
 }

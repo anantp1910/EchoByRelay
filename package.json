@@ -19,6 +19,7 @@
     "test:pa": "tsx scripts/pa-cases.ts",
     "test:watchdog": "tsx scripts/watchdog-cases.ts",
     "test:engine": "node --conditions=react-server --import tsx scripts/engine-cases.ts",
+    "test:gemini": "node --conditions=react-server --import tsx scripts/gemini-cases.ts",
     "fetch:label": "tsx scripts/fetch-label.ts"
   },
   "dependencies": {
