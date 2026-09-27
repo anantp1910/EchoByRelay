@@ -8,12 +8,13 @@ import { isRouterProgram, PROGRAM } from "@/components/labels";
 import { SimulatedBadge } from "@/components/SimulatedBadge";
 import type { AgentEvent } from "@/lib/db/types";
 
-// Staff minutes a human would otherwise spend, per item. Placeholders: change
-// them here and the total + small print follow.
+// Staff minutes a human would otherwise spend, per item. Change them here and
+// the total + small print follow. paDraft matches the pharma dashboard's
+// paHoursSaved (20 min per PA, AMA survey average); the others are team estimates.
 export const MINUTES_SAVED = {
-  paDraft: 45, // writing a prior authorization letter
-  enrollment: 15, // enrolling the patient in a manufacturer program
-  patientCall: 10, // one call per person notified
+  paDraft: 20, // one prior authorization (AMA survey average)
+  enrollment: 15, // enrolling the patient in a manufacturer program (team estimate)
+  patientCall: 10, // one call per person notified (team estimate)
 } as const;
 
 // Check-ins are listed but kept out of the total while they are sample data.
@@ -58,7 +59,8 @@ function itemsFrom(events: AgentEvent[], checkIns: CheckInView[], recipients: st
     });
   }
 
-  const pa = last(events, (e) => e.agent === "paDrafter" && obj(e).action === "submit_pa");
+  // The initial PA only: an appeal is not a second PA (same rule as paHoursSaved).
+  const pa = last(events, (e) => e.agent === "paDrafter" && obj(e).action === "submit_pa" && obj(e).appeal !== true);
   const paRunning = !pa && last(events, (e) => e.agent === "paDrafter" && e.status === "running");
   if (pa && pa.status !== "blocked") {
     const n = /(\d+)\s+citation/.exec(pa.detail ?? "")?.[1];
@@ -185,8 +187,9 @@ export function RelaySummary({
 
       {minutes > 0 && (
         <p className="mt-3 border-t border-primary/20 pt-2 text-xs text-muted-foreground" data-testid="time-saved-assumptions">
-          Estimate assumes PA letter {MINUTES_SAVED.paDraft} min · program enrollment {MINUTES_SAVED.enrollment} min ·{" "}
-          {MINUTES_SAVED.patientCall} min per patient or family call.
+          Estimate, not measured: PA {MINUTES_SAVED.paDraft} min (AMA survey average) · program enrollment{" "}
+          {MINUTES_SAVED.enrollment} min (team estimate) · {MINUTES_SAVED.patientCall} min per patient or family update
+          (team estimate). The appeal is not counted as a second PA.
           {!COUNT_CHECKINS && " Check-ins aren't counted until they're real data."}
         </p>
       )}

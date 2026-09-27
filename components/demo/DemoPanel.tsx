@@ -11,7 +11,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 
 import { FixtureBadge, RelayMark, ThemeToggle } from "@/components/AppHeader";
@@ -60,9 +60,12 @@ const SCENES: { n: number; mark: string; action: DemoAction; day?: number; label
   { n: 5, mark: "⑤", action: "jump", day: 26, label: "Delivered", hint: "Day 26: Cash Pay arrives" },
 ];
 
-/** Next scene to play, from the live day and whether Maria's PA is denied. */
-function nextScene(day: number | null, denied: boolean): number | null {
-  if (day === null) return null;
+/**
+ * Next scene to play, from the live day and Maria's PA state. Before her PA is
+ * submitted the story is on the Doctor screen, so no scene is highlighted.
+ */
+function nextScene(day: number | null, { submitted, denied }: PaState): number | null {
+  if (day === null || !submitted) return null;
   if (day >= 26) return 1; // story finished; reset for the next run
   if (day >= 24) return denied ? 5 : 4;
   if (day >= 2) return 3;
@@ -103,9 +106,11 @@ function useDemoDay() {
   return { day, setDay, error };
 }
 
-/** Whether Maria's newest demo prescription has a denied PA (live via Realtime). */
-function usePaDenied(): boolean {
-  const [denied, setDenied] = useState(false);
+type PaState = { submitted: boolean; denied: boolean };
+
+/** Maria's newest demo prescription: PA submitted yet? denied? (live via Realtime). */
+function usePaState(): PaState {
+  const [state, setState] = useState<PaState>({ submitted: false, denied: false });
 
   useEffect(() => {
     if (!supabase) return;
@@ -122,15 +127,17 @@ function usePaDenied(): boolean {
         .maybeSingle();
       const rxId = (rx as { id: string } | null)?.id;
       if (!rxId) {
-        if (!cancelled) setDenied(false);
+        if (!cancelled) setState({ submitted: false, denied: false });
         return;
       }
-      const { count } = await client
-        .from("pa_requests")
-        .select("id", { count: "exact", head: true })
-        .eq("rx_id", rxId)
-        .eq("status", "denied");
-      if (!cancelled) setDenied((count ?? 0) > 0);
+      const { data: pas } = await client.from("pa_requests").select("status").eq("rx_id", rxId);
+      const statuses = ((pas ?? []) as { status: string }[]).map((p) => p.status);
+      if (!cancelled) {
+        setState({
+          submitted: statuses.some((st) => st === "submitted" || st === "approved" || st === "denied"),
+          denied: statuses.includes("denied"),
+        });
+      }
     }
     const channel = client
       .channel("demo_state:panel-pa")
@@ -144,18 +151,32 @@ function usePaDenied(): boolean {
     };
   }, []);
 
-  return denied;
+  return state;
 }
 
 /** Hidden control panel used during judging. Not linked from any nav. */
 export function DemoPanel() {
   const { day, setDay, error } = useDemoDay();
-  const denied = usePaDenied();
-  const next = nextScene(day, denied);
+  const pa = usePaState();
+  const next = nextScene(day, pa);
   // Key of the control that is running (e.g. "jump:24", "scene:3"), for its spinner.
   const [running, setRunning] = useState<string | null>(null);
+  // Reset wipes shared demo data: the first click arms it for 3 s, the second runs it.
+  const [armed, setArmed] = useState<string | null>(null);
+  const disarm = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => () => {
+    if (disarm.current) clearTimeout(disarm.current);
+  }, []);
 
   async function run(key: string, label: string, action: DemoAction, dayArg?: number) {
+    if (action === "reset" && armed !== key) {
+      setArmed(key);
+      if (disarm.current) clearTimeout(disarm.current);
+      disarm.current = setTimeout(() => setArmed(null), 3000);
+      return;
+    }
+    if (disarm.current) clearTimeout(disarm.current);
+    setArmed(null);
     setRunning(key);
     try {
       const res = await demo(action === "jump" || action === "advance" ? { action, day: dayArg } : { action });
@@ -170,14 +191,16 @@ export function DemoPanel() {
 
   function actionButton({ action, testId, label, hint, icon: Icon, tone, day: dayArg }: PanelAction) {
     const key = `${action}:${dayArg ?? ""}`;
+    const isArmed = armed === key;
     return (
       <Button
         key={testId}
-        variant={tone === "danger" ? "destructive" : "outline"}
+        variant={tone === "danger" || isArmed ? "destructive" : "outline"}
         className="h-auto min-h-16 justify-start gap-3 px-4 py-3 text-left whitespace-normal"
         disabled={running !== null}
         onClick={() => run(key, label, action, dayArg)}
         data-testid={testId}
+        data-armed={isArmed}
       >
         {running === key ? (
           <LoaderCircle aria-hidden className="size-5! animate-spin motion-reduce:animate-none" />
@@ -185,10 +208,10 @@ export function DemoPanel() {
           <Icon aria-hidden className="size-5!" />
         )}
         <span className="flex flex-col">
-          <span className="text-base font-bold">{label}</span>
+          <span className="text-base font-bold">{isArmed ? "Click again to wipe demo data" : label}</span>
           {/* Dark outline buttons tint the ground; muted ink drops to 4.25:1 there. */}
-          <span className={cn("text-sm font-normal", tone === "danger" ? "opacity-90" : "text-muted-foreground dark:text-foreground/85")}>
-            {hint}
+          <span className={cn("text-sm font-normal", tone === "danger" || isArmed ? "opacity-90" : "text-muted-foreground dark:text-foreground/85")}>
+            {isArmed ? "Resets in one click · cancels in 3 s" : hint}
           </span>
         </span>
       </Button>
@@ -238,15 +261,21 @@ export function DemoPanel() {
           <h2 id="stage-scenes" className="text-sm font-bold tracking-wide text-muted-foreground uppercase">
             Stage scenes
           </h2>
+          {day !== null && !pa.submitted && (
+            <p className="rounded-lg border border-pending/40 bg-pending-soft px-3 py-2 text-sm font-medium text-pending-strong" data-testid="demo-next-doctor">
+              Next: on the Doctor screen — send the sentence, approve Bridge, approve the PA
+            </p>
+          )}
           <ol className="grid grid-cols-2 gap-2 sm:grid-cols-5">
             {SCENES.map((s) => {
               const key = `scene:${s.n}`;
               const isNext = next === s.n;
+              const isArmed = armed === key;
               const locked = s.minDay !== undefined && (day === null || day < s.minDay);
               return (
                 <li key={s.n} className="contents">
                   <Button
-                    variant={isNext ? "default" : "outline"}
+                    variant={isArmed ? "destructive" : isNext ? "default" : "outline"}
                     className={cn(
                       "h-auto min-h-20 flex-col items-start gap-1 px-3 py-3 text-left whitespace-normal",
                       isNext && "ring-2 ring-ring ring-offset-2 ring-offset-background"
@@ -256,6 +285,7 @@ export function DemoPanel() {
                     onClick={() => run(key, `${s.mark} ${s.label}`, s.action, s.day)}
                     data-testid={`demo-scene-${s.n}`}
                     data-next={isNext}
+                    data-armed={isArmed}
                   >
                     <span className="flex items-center gap-2 text-base font-bold">
                       {running === key ? (
@@ -263,10 +293,10 @@ export function DemoPanel() {
                       ) : (
                         <span aria-hidden>{s.mark}</span>
                       )}
-                      <span>{s.label}</span>
+                      <span>{isArmed ? "Click again to wipe demo data" : s.label}</span>
                     </span>
-                    <span className={cn("text-xs font-normal", isNext ? "opacity-90" : "text-muted-foreground dark:text-foreground/85")}>
-                      {locked ? `Available from day ${s.minDay}` : s.hint}
+                    <span className={cn("text-xs font-normal", isNext || isArmed ? "opacity-90" : "text-muted-foreground dark:text-foreground/85")}>
+                      {isArmed ? "Cancels in 3 s" : locked ? `Available from day ${s.minDay}` : s.hint}
                     </span>
                   </Button>
                 </li>

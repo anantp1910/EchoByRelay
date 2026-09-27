@@ -127,7 +127,7 @@ function SampleBadge({ sample }: { sample: boolean }) {
   if (!sample) return null;
   return (
     <span
-      title="The metrics route still returns placeholder numbers"
+      title="Offline preview data"
       className="rounded-full border border-dashed border-line px-2 py-0.5 text-xs font-medium whitespace-nowrap text-muted-foreground"
       data-testid="sample-badge"
     >
@@ -156,10 +156,18 @@ function Kpis({
     },
     {
       id: "time-to-therapy",
-      label: "Median time to therapy",
-      hint: "Decision to first dose",
+      label: "Median days to first dose",
+      hint: "Prescription to first medicine in hand",
       value: metrics?.medianDaysToTherapy ?? null,
       format: (n) => `${oneDecimal.format(n)} days`,
+      sample: true,
+    },
+    {
+      id: "days-without-medication",
+      label: "Days without medication (rescued patients)",
+      hint: "Days with no supply after the first dose",
+      value: metrics?.daysWithoutMedication ?? null,
+      format: (n) => int.format(Math.round(n)),
       sample: true,
     },
     {
@@ -181,7 +189,7 @@ function Kpis({
   ];
 
   return (
-    <section aria-label="Key metrics" className="grid grid-cols-2 gap-3 lg:grid-cols-4 lg:gap-4">
+    <section aria-label="Key metrics" className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5 lg:gap-4">
       {tiles.map((k) => (
         <div key={k.id} className="flex flex-col rounded-xl border border-line bg-card p-4 lg:p-5" data-testid={`kpi-${k.id}`}>
           <div className="flex flex-wrap items-center justify-between gap-1">

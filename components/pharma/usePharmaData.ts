@@ -41,7 +41,7 @@ const WATCHED = ["agent_events", "prescriptions", "enrollments", "alerts", "orde
 const REFRESH_MS = 1000;
 
 /**
- * Pharma dashboard data: /api/pharma/metrics, submitted-PA count, audit_log,
+ * Pharma dashboard data: /api/pharma/metrics, audit_log,
  * and patient ZIPs for de-identification. Realtime changes on the watched
  * tables trigger one debounced refetch. audit_log isn't in the Realtime
  * publication, so it reloads on those same changes (every agent step writes
@@ -51,7 +51,6 @@ export function usePharmaData() {
   const live = supabase !== null;
   const [metrics, setMetrics] = useState<DashboardMetrics | null>(live ? null : FIXTURE_METRICS);
   const [metricsState, setMetricsState] = useState<Load>(live ? "loading" : "ready");
-  const [paSubmitted, setPaSubmitted] = useState<number | null>(live ? null : 9);
   const [audit, setAudit] = useState<AuditLog[]>([]);
   const [auditState, setAuditState] = useState<Load>(live ? "loading" : "ready");
   const [patients, setPatients] = useState<Map<string, PatientLite>>(
@@ -66,9 +65,8 @@ export function usePharmaData() {
     let cancelled = false;
 
     async function refresh() {
-      const [m, pa, log, pts] = await Promise.allSettled([
+      const [m, log, pts] = await Promise.allSettled([
         pharmaMetrics(),
-        client.from("pa_requests").select("id", { count: "exact", head: true }).in("status", ["submitted", "approved", "denied"]),
         client.from("audit_log").select("*").order("created_at", { ascending: false }).limit(200),
         client.from("patients").select("id, name, zip"),
       ]);
@@ -80,7 +78,6 @@ export function usePharmaData() {
       } else {
         setMetricsState((s) => (s === "ready" ? s : "error")); // keep last good numbers
       }
-      if (pa.status === "fulfilled" && !pa.value.error) setPaSubmitted(pa.value.count ?? 0);
       if (log.status === "fulfilled" && !log.value.error) {
         setAudit((log.value.data ?? []) as AuditLog[]);
         setAuditState("ready");
@@ -117,5 +114,5 @@ export function usePharmaData() {
     setAttempt((n) => n + 1);
   }, []);
 
-  return { live, metrics, metricsState, paSubmitted, audit, auditState, patients, retry };
+  return { live, metrics, metricsState, audit, auditState, patients, retry };
 }
